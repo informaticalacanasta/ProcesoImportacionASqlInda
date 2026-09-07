@@ -7,11 +7,13 @@ public sealed class TicketDocumentReader
     private readonly TicketXmlParser _xmlParser = new();
     private readonly TicketFileNameParser _fileNameParser = new();
 
-    public ParseResult Read(string xml, string fileName)
+    public ParseResult Read(string xml, string fileName, ConversionWarning? encodingWarning = null)
     {
         var xmlResult = _xmlParser.Parse(xml);
         var parsedName = _fileNameParser.Parse(fileName);
         var warnings = new List<ConversionWarning>();
+        if (encodingWarning is not null)
+            warnings.Add(encodingWarning);
         warnings.AddRange(parsedName.Warnings);
         warnings.AddRange(xmlResult.Warnings);
 

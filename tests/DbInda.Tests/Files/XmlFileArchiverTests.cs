@@ -1,4 +1,6 @@
+using System.Text;
 using DbInda.Tests.Inbound;
+using DbInda.Tests.Parsing;
 using DbInda.Worker.Configuration;
 using DbInda.Worker.Files;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -70,6 +72,34 @@ public sealed class XmlFileArchiverTests
         Assert.Contains("_R77", Path.GetFileName(dest), StringComparison.OrdinalIgnoreCase);
         Assert.Equal(sourceBytes, File.ReadAllBytes(dest));
         Assert.False(File.Exists(source));
+    }
+
+    [Fact]
+    public async Task Conserva_bytes_windows1252_sin_reconvertir()
+    {
+        using var root = new TempFolder();
+        var xml = EncodingTestXml.WithDVendedor("ANA Mª");
+        var original = EncodingTestXml.ReplaceFeminineOrdinalWithWindows1252(Encoding.UTF8.GetBytes(xml));
+        var source = Path.Combine(root.Path, "ticket.xml");
+        File.WriteAllBytes(source, original);
+        var processed = Directory.CreateDirectory(Path.Combine(root.Path, "proc")).FullName;
+        var archiver = Create(processed, Path.Combine(root.Path, "err"));
+
+        var dest = await ArchiveAsync(
+            archiver,
+            new ArchiveRequest
+            {
+                SourcePath = source,
+                HashSha256 = Sha256Of(original),
+                Kind = ArchiveKind.Processed,
+                FolderDate = new DateOnly(2026, 8, 15),
+                Tienda = 52,
+                ReceptionId = 1252
+            });
+
+        Assert.False(File.Exists(source));
+        Assert.Equal(original, File.ReadAllBytes(dest));
+        Assert.NotEqual(Encoding.UTF8.GetBytes(xml), File.ReadAllBytes(dest));
     }
 
     [Fact]

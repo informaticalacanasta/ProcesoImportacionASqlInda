@@ -11,6 +11,7 @@ using DbInda.Worker.Persistence;
 using DbInda.Worker.Processing;
 using DbInda.Worker.Validation;
 using DbInda.Tests.Inbound;
+using DbInda.Tests.Parsing;
 
 namespace DbInda.Tests.Persistence;
 
@@ -123,6 +124,54 @@ public sealed class FileLifecycleSqlTests
                 "SELECT ESTADO_ARCHIVO FROM dbo.TICKET_RECEPCION WHERE HASH_SHA256 = @Hash",
                 new { Hash = hash });
             Assert.Equal(ArchiveStatuses.Archivado, estadoArchivo);
+        }
+        finally
+        {
+            await cleanup.DeleteOwnedAsync();
+        }
+    }
+
+    [SqlFact]
+    public async Task Xml_windows1252_etiquetado_utf8_importa_valor_hash_original_y_archivo_intacto()
+    {
+        using var ctx = LifecycleContext.Create();
+        var num = "ENC" + Guid.NewGuid().ToString("N")[..10];
+        var xml = EncodingTestXml.WithDVendedor("ANA Mª", num);
+        var original = EncodingTestXml.ReplaceFeminineOrdinalWithWindows1252(System.Text.Encoding.UTF8.GetBytes(xml));
+        var path = ctx.WriteEntradaBytes(EncodingTestXml.MatchingFileName(num), original);
+        var hash = Sha256FileHasher.ComputeHex(original);
+        var recodedHash = Sha256FileHasher.ComputeHex(
+            System.Text.Encoding.UTF8.GetBytes(XmlTextDecoder.Decode(original).Text));
+        Assert.NotEqual(hash, recodedHash);
+        var cleanup = new SqlTestDataCleanup();
+        cleanup.TrackHash(hash);
+        try
+        {
+            await ctx.Processor.ProcessAsync(path, CancellationToken.None);
+            Assert.False(File.Exists(path));
+            var archived = Directory.GetFiles(ctx.Procesados, "*.xml", SearchOption.AllDirectories);
+            Assert.Single(archived);
+            Assert.Equal(original, File.ReadAllBytes(archived[0]));
+
+            await using var connection = new SqlConnection(SqlTestEnvironment.ConnectionString);
+            await connection.OpenAsync();
+            var row = await connection.QuerySingleAsync<(
+                string Hash, int Warnings, string? Detalle, string Estado, string? DVendedor, string Calidad)>(
+                """
+                SELECT r.HASH_SHA256, r.NUMERO_WARNINGS, r.DETALLE_ADVERTENCIAS, r.ESTADO,
+                       t.D_VENDEDOR, t.ESTADO_CALIDAD
+                FROM dbo.TICKET_RECEPCION r
+                INNER JOIN dbo.TICKET t ON t.ID_TICKET = r.ID_TICKET
+                WHERE r.HASH_SHA256 = @Hash
+                """,
+                new { Hash = hash });
+
+            Assert.Equal(hash, row.Hash);
+            Assert.Equal("ANA Mª", row.DVendedor);
+            Assert.Contains("ENCODING_FALLBACK_WINDOWS1252", row.Detalle);
+            Assert.True(row.Warnings >= 1);
+            Assert.Equal(ReceptionStatuses.ProcesadoConAdvertencias, row.Estado);
+            Assert.Equal(TicketQualityStatuses.Ok, row.Calidad);
         }
         finally
         {
@@ -711,6 +760,13 @@ public sealed class FileLifecycleSqlTests
         {
             var path = Path.Combine(Entrada, name);
             File.WriteAllText(path, contents);
+            return path;
+        }
+
+        public string WriteEntradaBytes(string name, byte[] contents)
+        {
+            var path = Path.Combine(Entrada, name);
+            File.WriteAllBytes(path, contents);
             return path;
         }
 

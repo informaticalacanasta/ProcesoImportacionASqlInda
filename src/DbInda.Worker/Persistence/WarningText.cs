@@ -32,6 +32,7 @@ public static class WarningText
             "FILENAME_FECHA_INVALIDA" => false,
             "FILENAME_HORA_INVALIDA" => false,
             "DISCREPANCIA_FILENAME_XML" => false,
+            "ENCODING_FALLBACK_WINDOWS1252" => false,
             _ => true
         };
 }

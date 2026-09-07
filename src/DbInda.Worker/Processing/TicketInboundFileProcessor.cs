@@ -1,4 +1,3 @@
-using System.Text;
 using DbInda.Worker.Files;
 using DbInda.Worker.Inbound;
 using DbInda.Worker.Models;
@@ -58,10 +57,10 @@ public sealed class TicketInboundFileProcessor : IInboundFileProcessor
 
         var bytes = await File.ReadAllBytesAsync(normalized, cancellationToken).ConfigureAwait(false);
         var hash = bytes.Length > 0 ? Sha256FileHasher.ComputeHex(bytes) : "";
-        var xml = Encoding.UTF8.GetString(bytes);
+        var decoded = XmlTextDecoder.Decode(bytes);
         var fileName = Path.GetFileName(normalized);
-        var parse = _reader.Read(xml, fileName);
-        var xsd = _xsdValidator.Validate(xml);
+        var parse = _reader.Read(decoded.Text, fileName, decoded.Warning);
+        var xsd = _xsdValidator.Validate(decoded.Text);
 
         ImportResult result;
         try
