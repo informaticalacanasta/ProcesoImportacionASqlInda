@@ -1,10 +1,15 @@
 /*
-    DbInda — ALTER de TICKET_RECEPCION: archivo durable.
+    MIGRACIÓN de TICKET_RECEPCION (archivo durable) para esquemas ANTIGUOS.
+
+    NO EJECUTAR en una instalación NUEVA de TicketsTPV.
+    01_CreateTables.sql ya crea RUTA_DESTINO_PREVISTA y ESTADO_ARCHIVO.
+    Este script solo aplica si la base se creó con un 01 anterior, sin esas columnas.
 
     IMPORTANTE:
-    - Ejecutar MANUALMENTE en SSMS sobre la base existente (DbInda).
+    - Ejecutar MANUALMENTE, solo sobre un esquema antiguo que aún no tenga
+      las columnas de archivo.
     - La aplicación .NET NO debe ejecutarlo.
-    - No es un script de arranque diario: una vez basta.
+    - No es un script de arranque de TicketsTPV.
     - Idempotente: se puede reejecutar si un paso ya está aplicado.
 
     ESTADO              = resultado de importación.

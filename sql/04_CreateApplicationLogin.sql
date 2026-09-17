@@ -6,8 +6,13 @@
     - La aplicación .NET NO debe ejecutarlo.
     - No usar sa desde el Worker.
     - No conceder db_owner.
-    - Sustituir <SET_STRONG_PASSWORD_HERE> por una contraseña fuerte
-      ANTES de ejecutar. No dejar el placeholder en producción.
+
+    OBLIGATORIO ANTES DE EJECUTAR:
+    - Sustituir <SET_STRONG_PASSWORD_HERE> por una contraseña fuerte.
+    - No ejecutar el script con el placeholder.
+    - La contraseña real NO se guarda nunca en el repositorio.
+      En Git este fichero debe conservar el placeholder.
+
     - La clave de configuración de la app sigue siendo ConnectionStrings:DbInda;
       este script solo crea el login SQL ticketstpv_app sobre la base TicketsTPV.
 
@@ -25,6 +30,7 @@ GO
 
 IF NOT EXISTS (SELECT 1 FROM sys.server_principals WHERE name = N'ticketstpv_app')
 BEGIN
+    -- Sustituir el placeholder. No commitear la contraseña real.
     CREATE LOGIN [ticketstpv_app]
         WITH PASSWORD = N'<SET_STRONG_PASSWORD_HERE>',
              CHECK_POLICY = ON,

@@ -14,7 +14,16 @@
     Este script (arranque) incluye IX_TICKET_IDENTIDAD_FACTURA_LOOKUP:
     índice NO UNIQUE para el SELECT de CONFLICTO_MISMA_FACTURA.
     No sustituye a UX_TICKET_IDENTIDAD_FACTURA.
+
+    EJECUCIÓN (base NUEVA):
+    - UNA sola vez, inmediatamente después de 01_CreateTables.sql.
+    - NO es idempotente: CREATE INDEX falla si el índice ya existe.
+    - NO reejecutar sin comprobar antes los índices existentes.
+    - NO convertir este script en migración repetible sin revisar cada índice.
 */
+
+USE [TicketsTPV];
+GO
 
 SET ANSI_NULLS ON;
 SET QUOTED_IDENTIFIER ON;

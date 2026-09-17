@@ -6,7 +6,7 @@
     - La aplicación .NET NO debe ejecutarlo ni migrar el esquema.
     - No ejecutar CREATE/ALTER/DROP desde el servicio.
 
-    Base prevista: DbInda
+    Base física de destino: TicketsTPV (USE al inicio; no ejecutar contra master).
 
     Identidad de factura (venta): PENDIENTE.
         No crear todavía UX_TICKET_IDENTIDAD_FACTURA.
@@ -22,6 +22,9 @@
     Los estados de recepción y calidad son valores propios de este importer.
     Los CHECK de esos estados evitan strings mágicos en base de datos.
 */
+
+USE [TicketsTPV];
+GO
 
 SET ANSI_NULLS ON;
 SET QUOTED_IDENTIFIER ON;
