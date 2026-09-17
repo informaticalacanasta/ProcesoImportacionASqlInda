@@ -61,16 +61,8 @@ public sealed class XmlFileArchiver : IXmlFileArchiver
 
         if (SameVolume(source, destination))
         {
-            try
-            {
-                File.Move(source, destination);
-                return;
-            }
-            catch (IOException)
-            {
-                // En Linux GetPathRoot es "/" para casi todo; un mount point distinto
-                // hace fallar rename (EXDEV). Se cae a copia verificada.
-            }
+            File.Move(source, destination);
+            return;
         }
 
         // Copy+delete entre volúmenes. Si el proceso cae tras copiar y antes de borrar,
@@ -136,6 +128,10 @@ public sealed class XmlFileArchiver : IXmlFileArchiver
 
     private static bool SameVolume(string source, string destination)
     {
+        // Path.GetPathRoot no distingue mount points en Linux (casi todo es "/").
+        // En el despliegue previsto entrada/procesados/errores están en el mismo filesystem,
+        // así que File.Move es suficiente. No se hace copy/delete ante IOException genérica:
+        // permisos, destino existente o disco lleno deben fallar y dejar el XML en origen.
         var srcRoot = Path.GetPathRoot(Path.GetFullPath(source));
         var dstRoot = Path.GetPathRoot(Path.GetFullPath(destination));
         return srcRoot is not null

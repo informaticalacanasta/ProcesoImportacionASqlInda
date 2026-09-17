@@ -83,7 +83,7 @@ public sealed class InputXmlWatcher : IDisposable
         {
             if (string.IsNullOrWhiteSpace(path))
                 return;
-            if (!path.EndsWith(".xml", StringComparison.OrdinalIgnoreCase))
+            if (!FilePathNormalizer.HasXmlExtension(path))
                 return;
             _onXmlPath?.Invoke(path);
         }

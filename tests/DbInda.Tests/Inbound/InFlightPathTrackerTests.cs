@@ -32,13 +32,14 @@ public sealed class InFlightPathTrackerTests
     }
 
     [Fact]
-    public void En_Linux_rutas_que_solo_difieren_en_mayusculas_son_distintas()
+    public void Identidad_de_path_sigue_el_casing_del_filesystem()
     {
-        if (OperatingSystem.IsWindows())
-            return;
-
         var tracker = new InFlightPathTracker();
         Assert.True(tracker.TryClaim("/opt/dbinda/entrada/Ticket.xml"));
-        Assert.True(tracker.TryClaim("/opt/dbinda/entrada/ticket.xml"));
+        var second = tracker.TryClaim("/opt/dbinda/entrada/ticket.xml");
+        if (OperatingSystem.IsWindows())
+            Assert.False(second);
+        else
+            Assert.True(second);
     }
 }

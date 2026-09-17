@@ -40,7 +40,7 @@ public sealed class InputDirectoryScanner
 
             foreach (var file in Directory.EnumerateFiles(directory, "*", SearchOption.TopDirectoryOnly))
             {
-                if (file.EndsWith(".xml", StringComparison.OrdinalIgnoreCase))
+                if (FilePathNormalizer.HasXmlExtension(file))
                     onDiscovered(file);
             }
         }

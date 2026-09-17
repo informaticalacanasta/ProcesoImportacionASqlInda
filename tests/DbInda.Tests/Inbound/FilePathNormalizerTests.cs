@@ -19,4 +19,13 @@ public sealed class FilePathNormalizerTests
             OperatingSystem.IsWindows(),
             FilePathComparer.ForIdentity.Equals("Ticket.xml", "ticket.xml"));
     }
+
+    [Theory]
+    [InlineData("ticket.xml", true)]
+    [InlineData("ticket.XML", true)]
+    [InlineData("ticket.Xml", true)]
+    [InlineData("nota.txt", false)]
+    [InlineData("ticket.xml.bak", false)]
+    public void HasXmlExtension_solo_acepta_xml(string fileName, bool expected)
+        => Assert.Equal(expected, FilePathNormalizer.HasXmlExtension(fileName));
 }

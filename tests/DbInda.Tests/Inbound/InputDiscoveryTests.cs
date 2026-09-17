@@ -51,18 +51,21 @@ public sealed class InputDiscoveryTests
         await pipeline.ShutdownAsync();
     }
 
-    [Fact]
-    public void Scanner_acepta_extension_xml_sin_importar_mayusculas()
+    [Theory]
+    [InlineData("ticket.xml")]
+    [InlineData("ticket.XML")]
+    [InlineData("ticket.Xml")]
+    public void Scanner_acepta_extension_xml_sin_importar_mayusculas(string fileName)
     {
         using var folder = new TempFolder();
-        folder.WriteXml("ticket.XML");
+        folder.WriteXml(fileName);
         var discovered = new List<string>();
         var scanner = new InputDirectoryScanner(TimeProvider.System, NullLogger<InputDirectoryScanner>.Instance);
 
         scanner.ScanOnce(folder.Path, discovered.Add);
 
         Assert.Single(discovered);
-        Assert.EndsWith(".XML", discovered[0], StringComparison.OrdinalIgnoreCase);
+        Assert.True(FilePathNormalizer.HasXmlExtension(discovered[0]));
     }
 
     [Fact]
@@ -70,6 +73,7 @@ public sealed class InputDiscoveryTests
     {
         using var folder = new TempFolder();
         File.WriteAllText(folder.Xml("nota.txt"), "no");
+        File.WriteAllText(folder.Xml("ticket.xml.bak"), "no");
         var discovered = new List<string>();
         var scanner = new InputDirectoryScanner(TimeProvider.System, NullLogger<InputDirectoryScanner>.Instance);
 
