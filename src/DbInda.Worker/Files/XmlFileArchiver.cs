@@ -61,8 +61,16 @@ public sealed class XmlFileArchiver : IXmlFileArchiver
 
         if (SameVolume(source, destination))
         {
-            File.Move(source, destination);
-            return;
+            try
+            {
+                File.Move(source, destination);
+                return;
+            }
+            catch (IOException)
+            {
+                // En Linux GetPathRoot es "/" para casi todo; un mount point distinto
+                // hace fallar rename (EXDEV). Se cae a copia verificada.
+            }
         }
 
         // Copy+delete entre volúmenes. Si el proceso cae tras copiar y antes de borrar,

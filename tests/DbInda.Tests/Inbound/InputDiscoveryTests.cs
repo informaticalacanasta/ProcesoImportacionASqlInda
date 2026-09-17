@@ -50,4 +50,31 @@ public sealed class InputDiscoveryTests
         watcher.Stop();
         await pipeline.ShutdownAsync();
     }
+
+    [Fact]
+    public void Scanner_acepta_extension_xml_sin_importar_mayusculas()
+    {
+        using var folder = new TempFolder();
+        folder.WriteXml("ticket.XML");
+        var discovered = new List<string>();
+        var scanner = new InputDirectoryScanner(TimeProvider.System, NullLogger<InputDirectoryScanner>.Instance);
+
+        scanner.ScanOnce(folder.Path, discovered.Add);
+
+        Assert.Single(discovered);
+        Assert.EndsWith(".XML", discovered[0], StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Scanner_no_descubre_ficheros_que_no_son_xml()
+    {
+        using var folder = new TempFolder();
+        File.WriteAllText(folder.Xml("nota.txt"), "no");
+        var discovered = new List<string>();
+        var scanner = new InputDirectoryScanner(TimeProvider.System, NullLogger<InputDirectoryScanner>.Instance);
+
+        scanner.ScanOnce(folder.Path, discovered.Add);
+
+        Assert.Empty(discovered);
+    }
 }

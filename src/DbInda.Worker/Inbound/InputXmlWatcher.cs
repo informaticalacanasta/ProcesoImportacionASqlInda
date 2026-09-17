@@ -28,7 +28,7 @@ public sealed class InputXmlWatcher : IDisposable
         {
             var watcher = new FileSystemWatcher(directory)
             {
-                Filter = "*.xml",
+                Filter = "*",
                 IncludeSubdirectories = false,
                 NotifyFilter = NotifyFilters.FileName | NotifyFilters.DirectoryName | NotifyFilters.LastWrite | NotifyFilters.CreationTime,
                 InternalBufferSize = 64 * 1024

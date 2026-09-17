@@ -7,7 +7,7 @@ namespace DbInda.Worker.Processing;
 
 public sealed class SqlRetryScheduler
 {
-    private readonly ConcurrentDictionary<string, RetryState> _states = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, RetryState> _states = new(FilePathComparer.ForIdentity);
     private readonly RetryOptions _options;
     private readonly TimeProvider _timeProvider;
 

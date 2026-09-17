@@ -4,7 +4,7 @@ namespace DbInda.Worker.Inbound;
 
 public sealed class InFlightPathTracker
 {
-    private readonly ConcurrentDictionary<string, byte> _paths = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, byte> _paths = new(FilePathComparer.ForIdentity);
 
     public int Count => _paths.Count;
 

@@ -38,8 +38,11 @@ public sealed class InputDirectoryScanner
                 return;
             }
 
-            foreach (var file in Directory.EnumerateFiles(directory, "*.xml", SearchOption.TopDirectoryOnly))
-                onDiscovered(file);
+            foreach (var file in Directory.EnumerateFiles(directory, "*", SearchOption.TopDirectoryOnly))
+            {
+                if (file.EndsWith(".xml", StringComparison.OrdinalIgnoreCase))
+                    onDiscovered(file);
+            }
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

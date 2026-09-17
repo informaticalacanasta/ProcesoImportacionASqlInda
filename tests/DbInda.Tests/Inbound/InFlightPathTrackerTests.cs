@@ -23,8 +23,22 @@ public sealed class InFlightPathTrackerTests
     [Fact]
     public void En_Windows_la_ruta_es_case_insensitive()
     {
+        if (!OperatingSystem.IsWindows())
+            return;
+
         var tracker = new InFlightPathTracker();
         Assert.True(tracker.TryClaim(@"C:\DbInda\Entrada\Ticket.xml"));
         Assert.False(tracker.TryClaim(@"c:\dbinda\entrada\TICKET.XML"));
+    }
+
+    [Fact]
+    public void En_Linux_rutas_que_solo_difieren_en_mayusculas_son_distintas()
+    {
+        if (OperatingSystem.IsWindows())
+            return;
+
+        var tracker = new InFlightPathTracker();
+        Assert.True(tracker.TryClaim("/opt/dbinda/entrada/Ticket.xml"));
+        Assert.True(tracker.TryClaim("/opt/dbinda/entrada/ticket.xml"));
     }
 }

@@ -26,7 +26,7 @@ internal sealed class BlockingXmlResolver : XmlResolver
         if (absoluteUri.IsFile)
         {
             var localPath = Path.GetFullPath(absoluteUri.LocalPath);
-            if (!localPath.StartsWith(_xsdDirectory, StringComparison.OrdinalIgnoreCase))
+            if (!IsInsideDirectory(localPath, _xsdDirectory))
                 throw new XmlException($"Resolución de esquema fuera del directorio XSD rechazada: {absoluteUri}");
             if (!File.Exists(localPath))
                 throw new XmlException($"No se encontró el esquema local '{localPath}'.");
@@ -34,5 +34,17 @@ internal sealed class BlockingXmlResolver : XmlResolver
         }
 
         throw new XmlException($"Resolución externa de esquema rechazada: {absoluteUri}");
+    }
+
+    private static bool IsInsideDirectory(string fullPath, string directory)
+    {
+        var root = Path.GetFullPath(directory);
+        if (!root.EndsWith(Path.DirectorySeparatorChar) && !root.EndsWith(Path.AltDirectorySeparatorChar))
+            root += Path.DirectorySeparatorChar;
+
+        var comparison = OperatingSystem.IsWindows()
+            ? StringComparison.OrdinalIgnoreCase
+            : StringComparison.Ordinal;
+        return fullPath.StartsWith(root, comparison);
     }
 }
