@@ -1,0 +1,30 @@
+[Unit]
+Description=TicketsTPV TicketBAI XML importer
+Documentation=file:/opt/TicketsTPV/app
+After=network-online.target mssql-server.service
+Wants=network-online.target mssql-server.service
+
+[Service]
+Type=simple
+User=ticketstpv
+Group=ticketstpv
+WorkingDirectory=/opt/TicketsTPV/app
+EnvironmentFile=/etc/ticketstpv/ticketstpv.env
+Environment=DOTNET_ENVIRONMENT=Production
+ExecStart=/usr/bin/dotnet /opt/TicketsTPV/app/DbInda.Worker.dll
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=30
+KillSignal=SIGTERM
+
+StandardOutput=append:/opt/TicketsTPV/logs/worker.log
+StandardError=append:/opt/TicketsTPV/logs/worker.log
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/opt/TicketsTPV/entrada /opt/TicketsTPV/procesados /opt/TicketsTPV/errores /opt/TicketsTPV/logs
+
+[Install]
+WantedBy=multi-user.target
