@@ -23,6 +23,9 @@ public sealed class FileReadinessChecker
     }
 
     public async Task<bool> WaitUntilReadyAsync(string path, CancellationToken cancellationToken)
+        => await WaitForStableObservationAsync(path, cancellationToken).ConfigureAwait(false) is not null;
+
+    public async Task<FileStabilityObservation?> WaitForStableObservationAsync(string path, CancellationToken cancellationToken)
     {
         try
         {
@@ -30,11 +33,16 @@ public sealed class FileReadinessChecker
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            return false;
+            return null;
         }
     }
 
-    private async Task<bool> WaitUntilReadyCoreAsync(string path, CancellationToken cancellationToken)
+    public bool Matches(string path, FileStabilityObservation observation)
+        => _probe.TryObserve(path, out var length, out var lastWriteUtc)
+           && length == observation.Length
+           && lastWriteUtc == observation.LastWriteTimeUtc;
+
+    private async Task<FileStabilityObservation?> WaitUntilReadyCoreAsync(string path, CancellationToken cancellationToken)
     {
         long? previousLength = null;
         DateTime? previousWriteUtc = null;
@@ -44,13 +52,13 @@ public sealed class FileReadinessChecker
         {
             if (!_probe.Exists(path))
             {
-                _logger.LogInformation("El archivo XML ya no existe: {Path}", path);
-                return false;
+                _logger.LogDebug("El archivo ya no existe: {Path}", path);
+                return null;
             }
 
             if (!_probe.TryObserve(path, out var length, out var lastWriteUtc))
             {
-                _logger.LogInformation("Archivo XML aún no estable: {Path}. Motivo: bloqueado o en escritura.", path);
+                _logger.LogDebug("Archivo aún no estable: {Path}. Motivo: bloqueado o en escritura.", path);
                 previousLength = null;
                 previousWriteUtc = null;
                 stableCount = 0;
@@ -66,8 +74,8 @@ public sealed class FileReadinessChecker
             {
                 if (previousLength is not null)
                 {
-                    _logger.LogInformation(
-                        "Archivo XML aún no estable: {Path}. Motivo: cambió el tamaño o LastWriteTimeUtc (tamaño {Length}, escritura {LastWriteUtc}).",
+                    _logger.LogDebug(
+                        "Archivo aún no estable: {Path}. Motivo: cambió el tamaño o LastWriteTimeUtc (tamaño {Length}, escritura {LastWriteUtc}).",
                         path,
                         length,
                         lastWriteUtc);
@@ -79,12 +87,12 @@ public sealed class FileReadinessChecker
             }
 
             if (stableCount >= _options.StableChecks)
-                return true;
+                return new FileStabilityObservation(length, lastWriteUtc);
 
             await Task.Delay(Delay, _timeProvider, cancellationToken).ConfigureAwait(false);
         }
 
-        return false;
+        return null;
     }
 
     private TimeSpan Delay => TimeSpan.FromMilliseconds(_options.StableCheckDelayMilliseconds);

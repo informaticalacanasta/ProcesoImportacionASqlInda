@@ -40,8 +40,8 @@ public static class ServiceCollectionExtensions
 
         services.AddOptions<OrganizationOptions>()
             .Bind(configuration.GetSection("Organization"))
-            .Validate(o => o.ScanIntervalSeconds > 0 && o.ReadinessTimeoutSeconds > 0,
-                "Organization: los intervalos deben ser positivos.")
+            .Validate(o => o.MaxConcurrency > 0 && o.ScanIntervalSeconds > 0 && o.ReadinessTimeoutSeconds > 0,
+                "Organization: la concurrencia y los intervalos deben ser positivos.")
             .ValidateOnStart();
         services.AddSingleton<IArchivedInvoiceLookup, ArchivedInvoiceLookup>();
         services.AddSingleton<ReceivedFileOrganizer>();

@@ -15,6 +15,7 @@ public sealed class FileOrganizationWorker(ReceivedFileOrganizer organizer, IOpt
             try { await organizer.ScanAsync(stoppingToken); }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
             catch (Exception ex) { logger.LogError(ex, "Organizador pendiente; se reintentará sin detener la importación XML."); }
+            // Pause between passes. A new pass starts only after the previous one has finished.
             try { await Task.Delay(TimeSpan.FromSeconds(options.Value.ScanIntervalSeconds), stoppingToken); }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
         }

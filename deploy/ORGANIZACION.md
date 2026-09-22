@@ -70,7 +70,10 @@ eléctricos del disco ni el servidor Ubuntu real.
 `Paths:Input=/home/tpv_recepcion`, `Paths:Processed=/home/tpv_recepcion/procesados`,
 `Paths:Errors=/home/tpv_recepcion/errores` están preparados en appsettings.json.
 Las variables de entorno `Paths__...` tienen prioridad: revisar las configuradas en el servidor.
-`Organization` permite desactivar el organizador, cambiar Inbox/Organized y ajustar intervalo y timeout.
+`Organization` permite desactivar el organizador, cambiar Inbox/Organized/Logs, `MaxConcurrency`,
+el intervalo y el timeout. `ScanIntervalSeconds` es la pausa entre pasadas, no un solapamiento:
+el periodo es la duración de la pasada más ese intervalo. `MaxConcurrency` limita las esperas
+del organizador y es independiente de `Processing:MaxConcurrency`.
 Los valores vacíos de Inbox/Organized/Logs crean `inbox`, `inboxOrganizado` y `logs` bajo Input.
 La estabilidad usa los parámetros existentes `Processing:StableChecks` y `StableCheckDelayMilliseconds`.
 
