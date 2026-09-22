@@ -11,6 +11,7 @@ public sealed class ReceivedFileOrganizer
     private readonly string _input;
     private readonly string _inbox;
     private readonly string _organized;
+    private readonly string _logs;
     private readonly OrganizationOptions _options;
     private readonly FileReadinessChecker _readiness;
     private readonly IArchivedInvoiceLookup _invoices;
@@ -26,14 +27,18 @@ public sealed class ReceivedFileOrganizer
         _options = options.Value;
         _inbox = Path.GetFullPath(string.IsNullOrWhiteSpace(_options.Inbox) ? Path.Combine(_input, "inbox") : _options.Inbox);
         _organized = Path.GetFullPath(string.IsNullOrWhiteSpace(_options.Organized) ? Path.Combine(_input, "inboxOrganizado") : _options.Organized);
+        _logs = Path.GetFullPath(string.IsNullOrWhiteSpace(_options.Logs) ? Path.Combine(_input, "logs") : _options.Logs);
         _readiness = readiness;
         _invoices = invoices;
         _logger = logger;
         var comparer = FilePathComparer.ForIdentity;
+        var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
         if (comparer.Equals(_input, _inbox) || comparer.Equals(_input, _organized) || comparer.Equals(_inbox, _organized)
-            || _inbox.StartsWith(_organized + Path.DirectorySeparatorChar, OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal)
-            || _organized.StartsWith(_inbox + Path.DirectorySeparatorChar, OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
-            throw new ArgumentException("Input, inbox e inboxOrganizado deben ser carpetas independientes, sin anidar inbox e inboxOrganizado.");
+            || comparer.Equals(_logs, _input) || comparer.Equals(_logs, _inbox) || comparer.Equals(_logs, _organized)
+            || Nested(_inbox, _organized, comparison) || Nested(_organized, _inbox, comparison)
+            || Nested(_logs, _inbox, comparison) || Nested(_logs, _organized, comparison)
+            || Nested(_inbox, _logs, comparison) || Nested(_organized, _logs, comparison))
+            throw new ArgumentException("Input, inbox, inboxOrganizado y logs deben ser carpetas independientes, sin anidar inbox, inboxOrganizado ni logs entre sí.");
         _journal = new OrganizationJournal(Path.Combine(_inbox, ".organizacion"));
     }
 
@@ -42,6 +47,7 @@ public sealed class ReceivedFileOrganizer
         if (!Directory.Exists(_input)) return;
         Directory.CreateDirectory(_inbox);
         Directory.CreateDirectory(_organized);
+        Directory.CreateDirectory(_logs);
         // Released after each pass; another process must never mutate the same journal concurrently.
         using var ownership = new FileStream(Path.Combine(_inbox, ".organizador.lock"), FileMode.OpenOrCreate,
             FileAccess.ReadWrite, FileShare.None);
@@ -120,8 +126,25 @@ public sealed class ReceivedFileOrganizer
                 await FinishMoveAsync(entry, token);
             }, path, token);
         }
+
+        foreach (var path in Directory.EnumerateFiles(_input, "*", SearchOption.TopDirectoryOnly)
+                     .Where(p => Path.GetExtension(p).Equals(".log", StringComparison.OrdinalIgnoreCase)).ToArray())
+        {
+            if (HasPending(entries, path)) continue;
+            await IsolateAsync(async () =>
+            {
+                if (!await ReadyAsync(path, token)) return;
+                var entry = Plan(path, "Log", "", _logs);
+                _journal.Save(entry);
+                entries.Add(entry);
+                await FinishMoveAsync(entry, token);
+            }, path, token);
+        }
         RetireCompleted(entries);
     }
+
+    private static bool Nested(string child, string parent, StringComparison comparison) =>
+        child.StartsWith(parent + Path.DirectorySeparatorChar, comparison);
 
     private void RetireCompleted(List<OrganizationEntry> entries)
     {
@@ -132,7 +155,7 @@ public sealed class ReceivedFileOrganizer
             marker.State = "Complete";
             _journal.Save(marker);
         }
-        foreach (var entry in entries.Where(e => e.State == "Complete" || e.Kind == "Pdf" && e.State == "Staged"))
+        foreach (var entry in entries.Where(e => e.State == "Complete" || (e.Kind == "Pdf" || e.Kind == "Log") && e.State == "Staged"))
             _journal.Retire(entry);
     }
 

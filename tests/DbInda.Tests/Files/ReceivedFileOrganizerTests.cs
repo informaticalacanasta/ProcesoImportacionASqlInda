@@ -160,14 +160,37 @@ public sealed class ReceivedFileOrganizerTests
     }
 
     [Fact]
-    public async Task Carpetas_ajenas_xml_y_logs_no_se_modifican()
+    public async Task Carpetas_ajenas_y_xml_no_se_modifican()
     {
         using var root = new TempFolder();
         Directory.CreateDirectory(root.Xml("verifactu"));
-        var paths = new[] { "ticket.xml", "worker.log", "verifactu/80052_CLIENTES.TXT" };
+        var paths = new[] { "ticket.xml", "verifactu/80052_CLIENTES.TXT", "verifactu/worker.log" };
         foreach (var p in paths) root.WriteXml(p, "original");
         await Create(root).ScanAsync(default);
         foreach (var p in paths) Assert.Equal("original", File.ReadAllText(root.Xml(p)));
+    }
+
+    [Fact]
+    public async Task Log_de_entrada_va_a_logs_y_conserva_bytes()
+    {
+        using var root = new TempFolder();
+        root.WriteXml("30052_tpvision_4_151_1_2026_05-51-27.log", "linea");
+        await Create(root).ScanAsync(default);
+        Assert.False(File.Exists(root.Xml("30052_tpvision_4_151_1_2026_05-51-27.log")));
+        Assert.Equal("linea", File.ReadAllText(root.Xml("logs/30052_tpvision_4_151_1_2026_05-51-27.log")));
+    }
+
+    [Fact]
+    public async Task Log_repetido_conserva_ambas_copias()
+    {
+        using var root = new TempFolder();
+        root.WriteXml("tpv.log", "primero");
+        await Create(root).ScanAsync(default);
+        root.WriteXml("tpv.log", "segundo");
+        await Create(root).ScanAsync(default);
+        Assert.Equal("primero", File.ReadAllText(root.Xml("logs/tpv.log")));
+        var repeated = Assert.Single(Directory.GetFiles(root.Xml("logs"), "tpv_REPETIDO_*.log"));
+        Assert.Equal("segundo", File.ReadAllText(repeated));
     }
 
     [Fact]

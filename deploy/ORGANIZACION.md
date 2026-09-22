@@ -1,7 +1,10 @@
 # Organización de archivos recibidos
 
 Entrada de producción: `/home/tpv_recepcion`. Solo se examinan sus archivos directos.
-`dos`, `face`, `verifactu`, `verifactuAnulaciones`, `recepcion`, logs y archivos ajenos no se recorren ni modifican.
+`dos`, `face`, `verifactu`, `verifactuAnulaciones`, `recepcion` y archivos ajenos no se recorren ni modifican.
+Un `.log` directo de la entrada, cuando está estable, se traslada a `logs` (por defecto `/home/tpv_recepcion/logs`).
+Si el nombre ya existe, se conserva con `_REPETIDO_fechaUTC_identificador`. No se interpretan ni se publican en otro sitio.
+`Paths:Logs` sigue siendo el registro del propio servicio y no es el destino de estos archivos.
 
 ## Facturas
 
@@ -68,7 +71,7 @@ eléctricos del disco ni el servidor Ubuntu real.
 `Paths:Errors=/home/tpv_recepcion/errores` están preparados en appsettings.json.
 Las variables de entorno `Paths__...` tienen prioridad: revisar las configuradas en el servidor.
 `Organization` permite desactivar el organizador, cambiar Inbox/Organized y ajustar intervalo y timeout.
-Los valores vacíos de Inbox/Organized crean `inbox` e `inboxOrganizado` bajo Input.
+Los valores vacíos de Inbox/Organized/Logs crean `inbox`, `inboxOrganizado` y `logs` bajo Input.
 La estabilidad usa los parámetros existentes `Processing:StableChecks` y `StableCheckDelayMilliseconds`.
 
 Para publicar desde el equipo de desarrollo:

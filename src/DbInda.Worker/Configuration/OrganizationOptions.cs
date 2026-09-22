@@ -6,6 +6,7 @@ public sealed class OrganizationOptions
     // Empty paths are resolved underneath Paths:Input.
     public string Inbox { get; set; } = "";
     public string Organized { get; set; } = "";
+    public string Logs { get; set; } = "";
     public int ScanIntervalSeconds { get; set; } = 10;
     public int ReadinessTimeoutSeconds { get; set; } = 10;
 }

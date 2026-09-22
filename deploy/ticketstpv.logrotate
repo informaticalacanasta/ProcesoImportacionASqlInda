@@ -1,9 +1,9 @@
 # Copiar a /etc/logrotate.d/ticketstpv
-# copytruncate: el Worker escribe por stdout de systemd al mismo fichero;
-# no se debe rotar con rename (el proceso seguiría el inode antiguo).
-# 31 días: alineado con Logging:RetainedDays de appsettings.json.
+# El Worker crea /home/tpv_recepcion/logs y escribe worker-YYYYMMDD.log.
+# También borra los ficheros más antiguos que Logging:RetainedDays.
+# copytruncate: el proceso mantiene el fichero del día abierto.
 
-/opt/TicketsTPV/logs/worker.log {
+/home/tpv_recepcion/logs/worker-????????.log {
     daily
     rotate 31
     missingok
@@ -11,5 +11,5 @@
     compress
     delaycompress
     copytruncate
-    su ticketstpv ticketstpv
+    su tpv_recepcion tpv_recepcion
 }

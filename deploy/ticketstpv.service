@@ -6,8 +6,8 @@ Wants=network-online.target mssql-server.service
 
 [Service]
 Type=simple
-User=ticketstpv
-Group=ticketstpv
+User=tpv_recepcion
+Group=tpv_recepcion
 WorkingDirectory=/opt/TicketsTPV/app
 EnvironmentFile=/etc/ticketstpv/ticketstpv.env
 Environment=DOTNET_ENVIRONMENT=Production
@@ -17,14 +17,11 @@ RestartSec=10
 TimeoutStopSec=30
 KillSignal=SIGTERM
 
-StandardOutput=append:/opt/TicketsTPV/logs/worker.log
-StandardError=append:/opt/TicketsTPV/logs/worker.log
-
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectHome=read-only
 ProtectSystem=strict
-ReadWritePaths=/home/tpv_recepcion /opt/TicketsTPV/logs
+ReadWritePaths=/home/tpv_recepcion
 
 [Install]
 WantedBy=multi-user.target
