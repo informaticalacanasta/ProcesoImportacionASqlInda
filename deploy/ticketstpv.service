@@ -22,9 +22,9 @@ StandardError=append:/opt/TicketsTPV/logs/worker.log
 
 NoNewPrivileges=true
 PrivateTmp=true
-ProtectHome=true
+ProtectHome=read-only
 ProtectSystem=strict
-ReadWritePaths=/opt/TicketsTPV/entrada /opt/TicketsTPV/procesados /opt/TicketsTPV/errores /opt/TicketsTPV/logs
+ReadWritePaths=/home/tpv_recepcion /opt/TicketsTPV/logs
 
 [Install]
 WantedBy=multi-user.target

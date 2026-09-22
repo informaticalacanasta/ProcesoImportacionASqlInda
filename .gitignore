@@ -5,3 +5,5 @@ obj/
 *.suo
 TestResults/
 xml tiquetbai feria tpv2/
+
+/artifacts/organizacion-linux-x64/

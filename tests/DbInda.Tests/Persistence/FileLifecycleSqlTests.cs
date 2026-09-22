@@ -308,12 +308,8 @@ public sealed class FileLifecycleSqlTests
         using var ctx = LifecycleContext.Create();
         var xml = UniqueXml("I");
         var fileName = "Fact_B29189644_1_52-2-I_20260815_100759_3.00_sin_firmar.xml";
-        foreach (var tiendaFolder in new[] { "52", XmlFileArchiver.SinTiendaFolder })
-        {
-            var occupantDir = Directory.CreateDirectory(Path.Combine(ctx.Procesados, "2026", "08", "15", tiendaFolder)).FullName;
-            File.WriteAllText(Path.Combine(occupantDir, fileName), "<ocupante />");
-        }
-
+        var occupantDir = Directory.CreateDirectory(Path.Combine(ctx.Procesados, "2026", "08", "15")).FullName;
+        File.WriteAllText(Path.Combine(occupantDir, fileName), "<ocupante />");
         var path = ctx.WriteEntrada(fileName, xml);
         var original = File.ReadAllBytes(path);
         var cleanup = new SqlTestDataCleanup();

@@ -38,6 +38,13 @@ public static class ServiceCollectionExtensions
         services.AddOptions<LoggingOptions>()
             .Bind(configuration.GetSection(LoggingOptions.SectionName));
 
+        services.AddOptions<OrganizationOptions>()
+            .Bind(configuration.GetSection("Organization"))
+            .Validate(o => o.ScanIntervalSeconds > 0 && o.ReadinessTimeoutSeconds > 0,
+                "Organization: los intervalos deben ser positivos.")
+            .ValidateOnStart();
+        services.AddSingleton<IArchivedInvoiceLookup, ArchivedInvoiceLookup>();
+        services.AddSingleton<ReceivedFileOrganizer>();
         services.TryAddSingleton(TimeProvider.System);
         services.AddSingleton<SqlConnectionFactory>();
         services.AddSingleton<ReceptionRepository>();

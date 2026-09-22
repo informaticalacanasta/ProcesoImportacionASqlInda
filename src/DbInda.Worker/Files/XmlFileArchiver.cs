@@ -113,8 +113,8 @@ public sealed class XmlFileArchiver : IXmlFileArchiver
         if (request.Kind == ArchiveKind.Error)
             return Path.Combine(_paths.Errors, y, m, d);
 
-        var tienda = request.Tienda is int value ? value.ToString() : SinTiendaFolder;
-        return Path.Combine(_paths.Processed, y, m, d, tienda);
+
+        return Path.Combine(_paths.Processed, y, m, d);
     }
 
     private static IEnumerable<string> Candidates(string directory, string originalName, long receptionId)
