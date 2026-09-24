@@ -176,6 +176,32 @@ public sealed class ReceptionRepository
                 cancellationToken: cancellationToken));
     }
 
+    public async Task<ReceptionLookup?> FindByIdAsync(
+        SqlConnection connection,
+        IDbTransaction? transaction,
+        long idRecepcion,
+        CancellationToken cancellationToken)
+    {
+        const string sql = """
+            SELECT
+                ID_RECEPCION AS IdRecepcion,
+                ESTADO AS Estado,
+                ESTADO_ARCHIVO AS EstadoArchivo,
+                NUMERO_INTENTO AS NumeroIntento,
+                RUTA_ORIGEN AS RutaOrigen,
+                RUTA_FINAL AS RutaFinal,
+                RUTA_DESTINO_PREVISTA AS RutaDestinoPrevista,
+                HASH_SHA256 AS HashSha256,
+                ID_TICKET AS IdTicket,
+                FECHA_PRIMER_INTENTO AS FechaPrimerIntento
+            FROM dbo.TICKET_RECEPCION
+            WHERE ID_RECEPCION = @IdRecepcion;
+            """;
+
+        return await connection.QuerySingleOrDefaultAsync<ReceptionLookup>(
+            new CommandDefinition(sql, new { IdRecepcion = idRecepcion }, transaction, cancellationToken: cancellationToken));
+    }
+
     public async Task<int> PrepareRetryAsync(
         SqlConnection connection,
         IDbTransaction? transaction,

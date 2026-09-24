@@ -1,14 +1,18 @@
+using DbInda.Worker.Tracking;
+
 namespace DbInda.Worker.Inbound;
 
 public sealed class InputDirectoryScanner
 {
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<InputDirectoryScanner> _logger;
+    private readonly IScanActivity? _scans;
 
-    public InputDirectoryScanner(TimeProvider timeProvider, ILogger<InputDirectoryScanner> logger)
+    public InputDirectoryScanner(TimeProvider timeProvider, ILogger<InputDirectoryScanner> logger, IScanActivity? scans = null)
     {
         _timeProvider = timeProvider;
         _logger = logger;
+        _scans = scans;
     }
 
     public async Task RunAsync(
@@ -34,6 +38,7 @@ public sealed class InputDirectoryScanner
         {
             if (!Directory.Exists(directory))
             {
+                _scans?.NoteScan(false);
                 _logger.LogWarning("La carpeta de entrada no existe: {Directory}", directory);
                 return;
             }
@@ -43,9 +48,12 @@ public sealed class InputDirectoryScanner
                 if (FilePathNormalizer.HasXmlExtension(file))
                     onDiscovered(file);
             }
+
+            _scans?.NoteScan(true);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
+            _scans?.NoteScan(false);
             _logger.LogError(ex, "Error al escanear la carpeta de entrada {Directory}", directory);
         }
     }

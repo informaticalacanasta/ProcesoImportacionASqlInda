@@ -3,6 +3,7 @@ using DbInda.Worker.Inbound;
 using DbInda.Worker.Models;
 using DbInda.Worker.Parsing;
 using DbInda.Worker.Persistence;
+using DbInda.Worker.Tracking;
 using DbInda.Worker.Validation;
 
 namespace DbInda.Worker.Processing;
@@ -15,6 +16,7 @@ public sealed class TicketInboundFileProcessor : IInboundFileProcessor
     private readonly IXmlFileArchiver _archiver;
     private readonly XmlArchiveReconciler _reconciler;
     private readonly SqlRetryScheduler _retries;
+    private readonly ImportTracker? _tracker;
     private readonly ILogger<TicketInboundFileProcessor> _logger;
 
     public TicketInboundFileProcessor(
@@ -24,7 +26,8 @@ public sealed class TicketInboundFileProcessor : IInboundFileProcessor
         IXmlFileArchiver archiver,
         XmlArchiveReconciler reconciler,
         SqlRetryScheduler retries,
-        ILogger<TicketInboundFileProcessor> logger)
+        ILogger<TicketInboundFileProcessor> logger,
+        ImportTracker? tracker = null)
     {
         _reader = reader;
         _xsdValidator = xsdValidator;
@@ -33,6 +36,7 @@ public sealed class TicketInboundFileProcessor : IInboundFileProcessor
         _reconciler = reconciler;
         _retries = retries;
         _logger = logger;
+        _tracker = tracker;
     }
 
     public async Task ProcessAsync(string fullPath, CancellationToken cancellationToken)
@@ -79,10 +83,25 @@ public sealed class TicketInboundFileProcessor : IInboundFileProcessor
         catch (Exception ex) when (SqlAvailability.IsUnavailable(ex))
         {
             var delay = _retries.RegisterFailure(normalized);
+            await NoteRetryAsync(null, delay, cancellationToken).ConfigureAwait(false);
             _logger.LogWarning(
                 ex,
-                "SQL temporalmente no disponible antes o durante la recepción. El XML permanece en Entrada: {Path}. Próximo retry en {Delay}.",
+                "SQL temporalmente no disponible antes o durante la recepción. Errores: {Errors}. El XML permanece en Entrada: {Path}. Próximo retry en {Delay}.",
+                ex.Message,
                 normalized,
+                delay);
+            return;
+        }
+
+        if (result.OutcomeUncertain)
+        {
+            var delay = _retries.RegisterFailure(normalized);
+            await NoteRetryAsync(result.AttemptId, delay, cancellationToken).ConfigureAwait(false);
+            _logger.LogWarning(
+                "Confirmación incierta. No se afirma éxito ni se reescribe la recepción. Archivo: {Path}. ID_RECEPCION: {ReceptionId}. Errores: {Errors}. Próximo retry en {Delay}.",
+                normalized,
+                result.ReceptionId,
+                JoinErrors(result),
                 delay);
             return;
         }
@@ -90,8 +109,10 @@ public sealed class TicketInboundFileProcessor : IInboundFileProcessor
         if (result.SqlUnavailable || result.ReceptionId is null && result.Status == ReceptionStatuses.ErrorSql)
         {
             var delay = _retries.RegisterFailure(normalized);
+            await NoteRetryAsync(result.AttemptId, delay, cancellationToken).ConfigureAwait(false);
             _logger.LogWarning(
-                "SQL temporalmente no disponible; no hay TICKET_RECEPCION. XML en Entrada: {Path}. Próximo retry en {Delay}.",
+                "SQL temporalmente no disponible; no hay TICKET_RECEPCION. Errores: {Errors}. XML en Entrada: {Path}. Próximo retry en {Delay}.",
+                JoinErrors(result),
                 normalized,
                 delay);
             return;
@@ -128,11 +149,13 @@ public sealed class TicketInboundFileProcessor : IInboundFileProcessor
         if (result.Status == ReceptionStatuses.ErrorSql)
         {
             var delay = _retries.RegisterFailure(normalized);
+            await NoteRetryAsync(result.AttemptId, delay, cancellationToken).ConfigureAwait(false);
             _logger.LogWarning(
-                "ERROR_SQL: el XML permanece en Entrada para retry. Archivo: {Path}. ID_RECEPCION: {ReceptionId}. Intento: {Attempt}. Próximo retry en {Delay}.",
+                "ERROR_SQL: el XML permanece en Entrada para retry. Archivo: {Path}. ID_RECEPCION: {ReceptionId}. Intento: {Attempt}. Errores: {Errors}. Próximo retry en {Delay}.",
                 normalized,
                 result.ReceptionId,
                 result.AttemptNumber,
+                JoinErrors(result),
                 delay);
             return;
         }
@@ -168,6 +191,17 @@ public sealed class TicketInboundFileProcessor : IInboundFileProcessor
         }
         catch (Exception ex)
         {
+            if (_tracker is not null && result.ReceptionId is long receptionId)
+            {
+                await _tracker.RecordArchiveEventAsync(
+                    TrackingEventTypes.ArchivadoFallido,
+                    TrackingSeverity.Error,
+                    receptionId,
+                    normalized,
+                    ex.Message,
+                    cancellationToken).ConfigureAwait(false);
+            }
+
             _logger.LogError(
                 ex,
                 "Fallo de movimiento. La importación SQL no se deshace. Archivo: {Path}. ID_RECEPCION: {ReceptionId}.",
@@ -264,9 +298,19 @@ public sealed class TicketInboundFileProcessor : IInboundFileProcessor
             case ReceptionStatuses.ErrorXml:
             case ReceptionStatuses.ErrorPermanente:
                 _logger.LogWarning(
-                    "XML no procesable definitivo. Archivo: {Path}. Recepción: {ReceptionId}. Estado: {Status}.",
-                    path, result.ReceptionId, result.Status);
+                    "XML no procesable definitivo. Archivo: {Path}. Recepción: {ReceptionId}. Estado: {Status}. Errores: {Errors}.",
+                    path, result.ReceptionId, result.Status, JoinErrors(result));
                 break;
         }
     }
+
+    private async Task NoteRetryAsync(Guid? attemptId, TimeSpan delay, CancellationToken cancellationToken)
+    {
+        if (_tracker is null || attemptId is null)
+            return;
+        await _tracker.NoteRetryScheduledAsync(attemptId.Value, DateTimeOffset.UtcNow.Add(delay), cancellationToken).ConfigureAwait(false);
+    }
+
+    private static string JoinErrors(ImportResult result)
+        => result.Errors.Count == 0 ? "(sin detalle)" : string.Join("; ", result.Errors);
 }

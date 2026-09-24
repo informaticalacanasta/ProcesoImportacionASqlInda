@@ -1,0 +1,14 @@
+# Ejemplo de temporizador. NO habilitar con systemctl desde este proyecto.
+# systemctl enable --now ticketstpv-salud.timer   <- hacerlo solo en el servidor, a mano.
+
+[Unit]
+Description=Supervisión periódica de la señal de TicketsTPV
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=1min
+AccuracySec=15s
+Unit=ticketstpv-salud.service
+
+[Install]
+WantedBy=timers.target

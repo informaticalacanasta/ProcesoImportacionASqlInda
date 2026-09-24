@@ -51,6 +51,8 @@ public sealed class SqlRetryScheduler
         return delay;
     }
 
+    public int PendingCount => _states.Count;
+
     public void Clear(string path)
     {
         _states.TryRemove(FilePathNormalizer.Normalize(path), out _);

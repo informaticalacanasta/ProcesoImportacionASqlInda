@@ -1,0 +1,15 @@
+# Ejemplo. NO instalar ni habilitar desde el repositorio.
+# Copiar a mano a /etc/systemd/system/ solo si se quiere la supervisión externa.
+# La contraseña sigue en /etc/ticketstpv/ticketstpv.env, fuera de Git.
+# Hace falta sqlcmd en el servidor.
+
+[Unit]
+Description=Comprueba la señal del importador TicketsTPV
+After=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/ticketstpv/ticketstpv.env
+ExecStart=/opt/TicketsTPV/app/comprobar-salud.sh
+# El script usa SQLCMDSERVER y SQLCMDUSER. Añadirlos al env privado, no aquí.
+Nice=10

@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Threading.Channels;
 using DbInda.Worker.Configuration;
 using DbInda.Worker.Processing;
+using DbInda.Worker.Tracking;
 using Microsoft.Extensions.Options;
 
 namespace DbInda.Worker.Inbound;
@@ -13,6 +14,7 @@ public sealed class InboundXmlPipeline
     private readonly FileReadinessChecker _readiness;
     private readonly IInboundFileProcessor _processor;
     private readonly SqlRetryScheduler _retries;
+    private readonly IFileArrivalClock? _arrivals;
     private readonly ILogger<InboundXmlPipeline> _logger;
     private readonly int _consumerCount;
     private readonly ConcurrentDictionary<Task, byte> _discoveries = new();
@@ -24,12 +26,14 @@ public sealed class InboundXmlPipeline
         FileReadinessChecker readiness,
         IInboundFileProcessor processor,
         SqlRetryScheduler retries,
-        ILogger<InboundXmlPipeline> logger)
+        ILogger<InboundXmlPipeline> logger,
+        IFileArrivalClock? arrivals = null)
     {
         var options = processing.Value;
         _readiness = readiness;
         _processor = processor;
         _retries = retries;
+        _arrivals = arrivals;
         _logger = logger;
         _consumerCount = options.MaxConcurrency;
         _channel = Channel.CreateBounded<string>(new BoundedChannelOptions(options.QueueCapacity)
@@ -90,23 +94,24 @@ public sealed class InboundXmlPipeline
             normalized = FilePathNormalizer.Normalize(path);
             if (!_tracker.TryClaim(normalized))
             {
-                _logger.LogInformation("Ruta XML duplicada ignorada: {Path}", normalized);
+                _logger.LogDebug("Ruta XML duplicada ignorada: {Path}", normalized);
                 return;
             }
 
-            _logger.LogInformation("Archivo XML descubierto: {Path}", normalized);
+            _arrivals?.NoteObserved(normalized);
+            _logger.LogDebug("Archivo XML descubierto: {Path}", normalized);
 
             var ready = await _readiness.WaitUntilReadyAsync(normalized, cancellationToken).ConfigureAwait(false);
             if (!ready)
             {
-                _logger.LogInformation("Archivo XML no encolado porque no está estable o ya no está disponible: {Path}", normalized);
+                _logger.LogDebug("Archivo XML no encolado porque no está estable o ya no está disponible: {Path}", normalized);
                 _tracker.Release(normalized);
                 return;
             }
 
             if (_retries.ShouldDefer(normalized, out var nextAttemptUtc))
             {
-                _logger.LogInformation(
+                _logger.LogDebug(
                     "Próximo retry SQL de {Path} a las {NextAttemptUtc}. No se encola todavía.",
                     normalized,
                     nextAttemptUtc);
@@ -114,7 +119,7 @@ public sealed class InboundXmlPipeline
                 return;
             }
 
-            _logger.LogInformation("Archivo XML encolado: {Path}", normalized);
+            _logger.LogDebug("Archivo XML encolado: {Path}", normalized);
             await _channel.Writer.WriteAsync(normalized, cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
@@ -150,7 +155,7 @@ public sealed class InboundXmlPipeline
 
     private async Task ProcessOneAsync(string path)
     {
-        _logger.LogInformation("Inicio de procesamiento XML: {Path}", path);
+        _logger.LogDebug("Inicio de procesamiento XML: {Path}", path);
         try
         {
             await _processor.ProcessAsync(path, CancellationToken.None).ConfigureAwait(false);
@@ -162,7 +167,7 @@ public sealed class InboundXmlPipeline
         finally
         {
             _tracker.Release(path);
-            _logger.LogInformation("Fin de procesamiento XML: {Path}", path);
+            _logger.LogDebug("Fin de procesamiento XML: {Path}", path);
         }
     }
 }

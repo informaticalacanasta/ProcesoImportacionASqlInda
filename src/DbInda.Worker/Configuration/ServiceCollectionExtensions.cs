@@ -5,6 +5,9 @@ using DbInda.Worker.Persistence;
 using DbInda.Worker.Processing;
 using DbInda.Worker.Validation;
 using DbInda.Worker.Files;
+using DbInda.Worker.Alerts;
+using DbInda.Worker.Tracking;
+using DbInda.Worker.Workers;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 
@@ -19,6 +22,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IValidateOptions<RetryOptions>, RetryOptionsValidator>();
         services.AddSingleton<IValidateOptions<SqlOptions>, SqlOptionsValidator>();
         services.AddSingleton<IValidateOptions<XsdValidationOptions>, XsdValidationOptionsValidator>();
+        services.AddSingleton<IValidateOptions<TrackingOptions>, TrackingOptionsValidator>();
 
         services.AddOptions<PathsOptions>()
             .Bind(configuration.GetSection(PathsOptions.SectionName))
@@ -37,6 +41,9 @@ public static class ServiceCollectionExtensions
             .ValidateOnStart();
         services.AddOptions<LoggingOptions>()
             .Bind(configuration.GetSection(LoggingOptions.SectionName));
+        services.AddOptions<TrackingOptions>()
+            .Bind(configuration.GetSection(TrackingOptions.SectionName))
+            .ValidateOnStart();
 
         services.AddOptions<OrganizationOptions>()
             .Bind(configuration.GetSection("Organization"))
@@ -66,7 +73,42 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<InboundXmlPipeline>();
         services.AddSingleton<InputDirectoryScanner>();
         services.AddSingleton<InputXmlWatcher>();
+        services.AddSingleton<InboundActivity>();
+        services.AddSingleton<IScanActivity>(sp => sp.GetRequiredService<InboundActivity>());
+        services.AddSingleton(sp =>
+        {
+            var directory = TrackingDirectory(sp);
+            var tracking = sp.GetRequiredService<IOptions<TrackingOptions>>().Value;
+            return new TrackingOutbox(
+                directory,
+                tracking.OutboxMaxFiles,
+                tracking.OutboxMaxBytes,
+                sp.GetRequiredService<ILogger<TrackingOutbox>>());
+        });
+        services.AddSingleton(sp => new FileObservationRegistry(
+            Path.Combine(TrackingDirectory(sp), "observaciones.json"),
+            sp.GetRequiredService<TimeProvider>()));
+        services.AddSingleton<IFileArrivalClock>(sp => sp.GetRequiredService<FileObservationRegistry>());
+        services.AddSingleton<ITrackingStore, SqlTrackingStore>();
+        services.AddSingleton<ImportTracker>();
+        services.AddSingleton(sp => new AlertStateStore(
+            Path.Combine(TrackingDirectory(sp), "alertas-estado.json"),
+            sp.GetRequiredService<ILogger<AlertStateStore>>()));
+        services.AddSingleton<AlertEngine>();
+        services.AddSingleton(sp => new LocalAlertSink(
+            Path.Combine(TrackingDirectory(sp), "alertas.log"),
+            sp.GetRequiredService<ILogger<LocalAlertSink>>()));
+        services.AddSingleton<WebhookAlertSink>();
+        services.AddHostedService<TrackingLifecycleService>();
+        services.AddHostedService<ImportHealthWorker>();
 
         return services;
+    }
+
+    private static string TrackingDirectory(IServiceProvider services)
+    {
+        var tracking = services.GetRequiredService<IOptions<TrackingOptions>>().Value;
+        var paths = services.GetRequiredService<IOptions<PathsOptions>>().Value;
+        return TrackingPaths.ResolveOutbox(tracking, paths);
     }
 }

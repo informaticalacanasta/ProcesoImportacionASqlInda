@@ -1,9 +1,10 @@
 # Copiar a /etc/logrotate.d/ticketstpv
-# El Worker crea /home/tpv_recepcion/logs y escribe worker-YYYYMMDD.log.
+# El Worker crea /home/tpv_recepcion/logs y escribe worker-YYYYMMDD.log en JSON, una línea por evento.
+# Si el fichero del día supera Logging:MaxFileBytes, lo rota a worker-YYYYMMDD-NNN.log.
 # También borra los ficheros más antiguos que Logging:RetainedDays.
 # copytruncate: el proceso mantiene el fichero del día abierto.
 
-/home/tpv_recepcion/logs/worker-????????.log {
+/home/tpv_recepcion/logs/worker-*.log {
     daily
     rotate 31
     missingok

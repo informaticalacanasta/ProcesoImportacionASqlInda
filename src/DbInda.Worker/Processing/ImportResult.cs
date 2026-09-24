@@ -14,4 +14,7 @@ public sealed class ImportResult
     public bool ArchiveOnly { get; init; }
     public string EstadoArchivo { get; init; } = ArchiveStatuses.Pendiente;
     public bool SqlUnavailable { get; init; }
+    public bool OutcomeUncertain { get; init; }
+    public Guid? AttemptId { get; init; }
+    public long? DurationMs { get; init; }
 }

@@ -85,7 +85,10 @@ dotnet publish src/DbInda.Worker/DbInda.Worker.csproj -c Release -r linux-x64 --
 
 Subir el contenido publicado con FileZilla a la carpeta de la aplicación, con el servicio detenido.
 Conservar la configuración privada y las credenciales del servidor. Se requiere runtime .NET 10.
-No subir carpetas de tests ni ejecutar scripts SQL: no hay cambios de esquema.
+No subir carpetas de tests. El seguimiento nuevo sí cambia el esquema: antes de
+arrancar esta versión hay que ejecutar a mano `sql/05_CreateTracking.sql`,
+`sql/06_Vistas_Seguimiento.sql` y `sql/07_GrantTracking.sql`. El procedimiento
+está en `deploy/SEGUIMIENTO.md`.
 
 La plantilla `deploy/ticketstpv.service` ahora permite escritura en `/home/tpv_recepcion` y deja
 `ProtectHome=read-only` con esa excepción. También se debe actualizar la unidad instalada y recargar
