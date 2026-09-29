@@ -48,8 +48,10 @@ antes de acabar las transferencias: observar tamaño estable no sustituye el pro
 `inbox/.organizacion` contiene el registro local durable de movimientos, hashes, autorizaciones y copias.
 NO borrar ni editar este directorio. Forma parte del estado del programa y debe incluirse en las copias de seguridad.
 Los registros terminados pasan a `historial`, repartidos en subcarpetas; cada ciclo lee solo los pendientes.
-Los archivos recibidos no se eliminan como limpieza periódica.
 Un bloqueo exclusivo de `inbox/.organizador.lock` impide dos organizadores simultáneos sobre el mismo inbox.
+La limpieza de `inbox` usa ese mismo bloqueo solo para la comprobación final y el borrado. Si no puede adquirirlo, aplaza la pasada.
+
+`InboxCleanup` borra un TXT o un bnd de `inbox` cuando identifica sin ambigüedad su llegada en `historial` con estado `Complete`, el hash actual coincide, ningún registro activo lo reclama y han pasado `RetentionHours` desde `EligibleSinceUtc`. Ese reloj lo guarda la propia limpieza en `inbox/.limpieza` la primera vez que demuestra todas las condiciones; no usa la fecha del JSON del historial. Un `PEDIDOS_TMPP` reconocido exige además `MIRRORED` leído del JSON persistido en `pedidos/.mirror`. Un nombre que parece de esa familia, aunque sea en otra capitalización o con sufijo `_REPETIDO_`, pero que el clasificador estricto no reconoce, se conserva: no pasa al camino de un TXT genérico y se invalida su marca de elegibilidad. Una marca de `inbox/.limpieza` sin `EligibleSinceUtc`, con valor nulo, mal formado o igual al mínimo de `DateTimeOffset` no autoriza el borrado; si el archivo sigue siendo elegible se guarda la fecha actual y la retención vuelve a empezar. Una fecha futura tampoco autoriza el borrado: se deja como está y no se sustituye por la fecha de escritura del archivo. Un bnd exige que cada miembro de esa llegada esté `Complete` y que ninguno siga en el diario activo. Si la evidencia es ambigua, el historial no se puede leer o el archivo es un enlace, se conserva. No hace falta que la copia siga en `inboxOrganizado`. No borra nada de `pedidos/` ni modifica la publicación.
 
 Una intención de traslado se guarda antes del movimiento. Tras reiniciar:
 - destino correcto existente: se finaliza el traslado; un origen existente se conserva como posible nueva llegada;
@@ -101,3 +103,23 @@ No se han cambiado usuarios, permisos ni servicios del servidor desde este proye
 Los mensajes van al proveedor ILogger existente. En la unidad suministrada stdout/stderr se guardan
  en `/opt/TicketsTPV/logs/worker.log`. Comprobar allí errores de permisos, colisiones, PDF ambiguos
  y la recepción/importación después de desplegar. La plantilla y los permisos deben verificarse en Ubuntu.
+
+## Pedidos TXT
+
+El organizador y `inboxOrganizado` no cambian. Las ventas XML tampoco. Un TXT de pedido no entra en el importador de tickets porque ese flujo solo admite `.xml`.
+
+El espejo lee los TXT ya estables de `inbox` (el original se queda ahí) cuyo nombre contiene `PED_`, el sello `0yyMMddHHmmss`, tienda y caja de cinco dígitos y el sufijo `_PEDIDOS_TMPP.TXT`. Tolera el prefijo numérico del organizador y un sufijo `_REPETIDO_`. No lee `inboxOrganizado`.
+
+La cola es independiente de SQL Server:
+
+1. Estabilizar el origen y calcular SHA-256.
+2. Copiar a `pedidos/.staging` y verificar el hash.
+3. Guardar `PREPARED` en `pedidos/.mirror/{sha256}.json` antes de que el fichero sea visible.
+4. Publicar con rename en `pedidos/pendientes`.
+5. Guardar `MIRRORED`.
+
+`PedidoImportWorker` solo mira ficheros de primer nivel en `pendientes` y descarta nombres que empiezan por `.`, terminan en `.partial` o `.tmp`, o contienen `__`. Si el proceso cae después del rename y antes de `MIRRORED`, al arrancar se promueve a `MIRRORED` si la copia sigue en pendientes o ya está en procesados/errores. No hace falta SQL para recuperar el espejo. Un mismo hash no se vuelve a copiar: el diario recuerda la ruta, el tamaño y `LastWriteTimeUtc`. Si el mismo nombre llega con otro hash, el segundo fichero lleva el sufijo del hash y no pisa al primero.
+
+`FH_PEDIDO` sale del sello del nombre (`0260923125118` = 23/09/2026 12:51:18), no de `DATAASERVIR` ni de la hora actual. La cabecera nombra 66 columnas y el TXT añade un `|` final, así que cada línea tiene 67 campos. El último va vacío y no desplaza a `id_internet`. El parser exige exactamente eso. Un TXT inválido va a `pedidos/errores/yyyy/MM/dd/{tienda}`. Uno importado va a `pedidos/procesados/yyyy/MM/dd/{tienda}/`. Si SQL confirma el pedido y falla el traslado, el siguiente ciclo solo mueve el fichero.
+
+Las tablas `PEDIDO_TPV_RECEPCION`, `PEDIDO_TPV` y `PEDIDO_TPV_DETALLE` ya existen. Esta versión no las crea ni las migra. `Orders` en la configuración apunta a `/home/tpv_recepcion/pedidos/...`. La unidad systemd ya permite escribir en `/home/tpv_recepcion`; no hace falta cambiarla para estas carpetas. El servicio las crea al arrancar.

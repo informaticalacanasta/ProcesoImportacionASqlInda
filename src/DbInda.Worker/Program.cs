@@ -15,6 +15,9 @@ if (!string.IsNullOrWhiteSpace(logsDirectory))
 }
 builder.Services.AddHostedService<TicketImportWorker>();
 builder.Services.AddHostedService<FileOrganizationWorker>();
+builder.Services.AddHostedService<PedidoMirrorWorker>();
+builder.Services.AddHostedService<PedidoImportWorker>();
+builder.Services.AddHostedService<InboxCleanupWorker>();
 
 var host = builder.Build();
 host.Run();

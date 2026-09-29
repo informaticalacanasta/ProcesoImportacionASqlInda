@@ -7,6 +7,7 @@ using DbInda.Worker.Validation;
 using DbInda.Worker.Files;
 using DbInda.Worker.Alerts;
 using DbInda.Worker.Tracking;
+using DbInda.Worker.Orders;
 using DbInda.Worker.Workers;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
@@ -23,6 +24,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IValidateOptions<SqlOptions>, SqlOptionsValidator>();
         services.AddSingleton<IValidateOptions<XsdValidationOptions>, XsdValidationOptionsValidator>();
         services.AddSingleton<IValidateOptions<TrackingOptions>, TrackingOptionsValidator>();
+        services.AddSingleton<IValidateOptions<OrderOptions>, OrderOptionsValidator>();
+        services.AddSingleton<IValidateOptions<InboxCleanupOptions>, InboxCleanupOptionsValidator>();
 
         services.AddOptions<PathsOptions>()
             .Bind(configuration.GetSection(PathsOptions.SectionName))
@@ -43,6 +46,12 @@ public static class ServiceCollectionExtensions
             .Bind(configuration.GetSection(LoggingOptions.SectionName));
         services.AddOptions<TrackingOptions>()
             .Bind(configuration.GetSection(TrackingOptions.SectionName))
+            .ValidateOnStart();
+        services.AddOptions<OrderOptions>()
+            .Bind(configuration.GetSection(OrderOptions.SectionName))
+            .ValidateOnStart();
+        services.AddOptions<InboxCleanupOptions>()
+            .Bind(configuration.GetSection(InboxCleanupOptions.SectionName))
             .ValidateOnStart();
 
         services.AddOptions<OrganizationOptions>()
@@ -101,6 +110,18 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<WebhookAlertSink>();
         services.AddHostedService<TrackingLifecycleService>();
         services.AddHostedService<ImportHealthWorker>();
+        services.AddSingleton(sp =>
+        {
+            var orders = sp.GetRequiredService<IOptions<OrderOptions>>().Value;
+            return new PedidoMirrorJournal(
+                PedidoLayout.Mirror(orders),
+                sp.GetRequiredService<ILogger<PedidoMirrorJournal>>());
+        });
+        services.AddSingleton<PedidoFileMirror>();
+        services.AddSingleton<InboxCleanup>();
+        services.AddSingleton<PedidoTxtParser>();
+        services.AddSingleton<IPedidoRepository, PedidoRepository>();
+        services.AddSingleton<PedidoProcessor>();
 
         return services;
     }

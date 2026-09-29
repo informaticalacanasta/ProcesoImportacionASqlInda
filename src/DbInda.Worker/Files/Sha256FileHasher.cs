@@ -9,4 +9,10 @@ public static class Sha256FileHasher
         var hash = SHA256.HashData(bytes);
         return Convert.ToHexString(hash);
     }
+
+    public static string ComputeHex(string path)
+    {
+        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+        return Convert.ToHexString(SHA256.HashData(stream));
+    }
 }
