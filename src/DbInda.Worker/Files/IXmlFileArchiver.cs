@@ -13,6 +13,7 @@ public sealed class ArchiveRequest
     public required ArchiveKind Kind { get; init; }
     public required DateOnly FolderDate { get; init; }
     public int? Tienda { get; init; }
+    public int? Tpv { get; init; }
     public required long ReceptionId { get; init; }
 }
 

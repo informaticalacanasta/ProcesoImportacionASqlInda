@@ -156,6 +156,7 @@ public sealed class XmlArchiveReconciler
             Kind = ReceptionLifecycle.ArchiveKindFor(row.Estado),
             FolderDate = FolderDate(row),
             Tienda = row.TiendaFichero,
+            Tpv = row.TpvFichero,
             ReceptionId = row.IdRecepcion
         };
 

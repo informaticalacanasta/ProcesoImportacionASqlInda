@@ -328,23 +328,25 @@ public sealed class ReceptionRepository
     {
         const string sql = """
             SELECT
-                ID_RECEPCION AS IdRecepcion,
-                ESTADO AS Estado,
-                ESTADO_ARCHIVO AS EstadoArchivo,
-                RUTA_ORIGEN AS RutaOrigen,
-                RUTA_DESTINO_PREVISTA AS RutaDestinoPrevista,
-                HASH_SHA256 AS HashSha256,
-                NOMBRE_FICHERO AS NombreFichero,
-                FECHA_FICHERO AS FechaFichero,
-                TIENDA_FICHERO AS TiendaFichero,
-                FECHA_PROCESADO AS FechaProcesado,
-                FECHA_RECEPCION AS FechaRecepcion
-            FROM dbo.TICKET_RECEPCION
-            WHERE ESTADO_ARCHIVO IN (@Pendiente, @Archivando)
-              AND ESTADO IN (
+                r.ID_RECEPCION AS IdRecepcion,
+                r.ESTADO AS Estado,
+                r.ESTADO_ARCHIVO AS EstadoArchivo,
+                r.RUTA_ORIGEN AS RutaOrigen,
+                r.RUTA_DESTINO_PREVISTA AS RutaDestinoPrevista,
+                r.HASH_SHA256 AS HashSha256,
+                r.NOMBRE_FICHERO AS NombreFichero,
+                COALESCE(t.FECHA_EXPEDICION, r.FECHA_FICHERO) AS FechaFichero,
+                COALESCE(r.TIENDA_FICHERO, t.TIENDA) AS TiendaFichero,
+                COALESCE(r.TPV_FICHERO, t.TPV) AS TpvFichero,
+                r.FECHA_PROCESADO AS FechaProcesado,
+                r.FECHA_RECEPCION AS FechaRecepcion
+            FROM dbo.TICKET_RECEPCION AS r
+            LEFT JOIN dbo.TICKET AS t ON t.ID_TICKET = r.ID_TICKET
+            WHERE r.ESTADO_ARCHIVO IN (@Pendiente, @Archivando)
+              AND r.ESTADO IN (
                     @Procesado, @ProcesadoAdv, @Duplicado, @Conflicto,
                     @ErrorXml, @ErrorPermanente)
-            ORDER BY ID_RECEPCION;
+            ORDER BY r.ID_RECEPCION;
             """;
 
         var rows = await connection.QueryAsync<IncompleteArchiveRow>(new CommandDefinition(

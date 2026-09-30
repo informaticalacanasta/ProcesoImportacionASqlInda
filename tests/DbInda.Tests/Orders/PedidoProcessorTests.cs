@@ -19,7 +19,7 @@ public sealed class PedidoProcessorTests
 
         Assert.Equal(1, repo.Saves);
         Assert.False(File.Exists(file));
-        var archived = Path.Combine(root.Path, "procesados", "2026", "09", "23", "167", PedidoSamples.Name);
+        var archived = Path.Combine(root.Path, "procesados", "tienda_167", "tpv_001", "2026", "09", "23", PedidoSamples.Name);
         Assert.True(File.Exists(archived));
     }
 
@@ -34,7 +34,7 @@ public sealed class PedidoProcessorTests
 
         Assert.Equal(0, repo.Saves);
         Assert.False(File.Exists(file));
-        Assert.True(File.Exists(Path.Combine(root.Path, "procesados", "2026", "09", "23", "167", PedidoSamples.Name)));
+        Assert.True(File.Exists(Path.Combine(root.Path, "procesados", "tienda_167", "tpv_001", "2026", "09", "23", PedidoSamples.Name)));
     }
 
     [Fact]
@@ -89,7 +89,7 @@ public sealed class PedidoProcessorTests
 
         Assert.Equal(1, repo.Saves);
         Assert.False(File.Exists(file));
-        Assert.True(File.Exists(Path.Combine(root.Path, "procesados", "2026", "09", "23", "167", PedidoSamples.Name)));
+        Assert.True(File.Exists(Path.Combine(root.Path, "procesados", "tienda_167", "tpv_001", "2026", "09", "23", PedidoSamples.Name)));
     }
 
     [Theory]

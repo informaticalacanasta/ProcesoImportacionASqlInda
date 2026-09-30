@@ -13,7 +13,9 @@ if (!string.IsNullOrWhiteSpace(logsDirectory))
     var maxFileBytes = builder.Configuration.GetValue("Logging:MaxFileBytes", 20L * 1024 * 1024);
     builder.Logging.AddProvider(new DailyFileLoggerProvider(logsDirectory, retainedDays, maxFileBytes));
 }
+builder.Services.AddHostedService<TicketStagingWorker>();
 builder.Services.AddHostedService<TicketImportWorker>();
+builder.Services.AddHostedService<TicketDeliveryWorker>();
 builder.Services.AddHostedService<FileOrganizationWorker>();
 builder.Services.AddHostedService<PedidoMirrorWorker>();
 builder.Services.AddHostedService<PedidoImportWorker>();

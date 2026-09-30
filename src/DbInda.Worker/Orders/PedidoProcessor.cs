@@ -85,7 +85,8 @@ public sealed class PedidoProcessor
 
         if (existing is not null && string.Equals(existing.Estado, PedidoReceptionStatuses.Error, StringComparison.Ordinal))
         {
-            MoveToErrors(path, name, hash, fileDate: null, storeId: null);
+            PedidoFileIdentity? errorIdentity = PedidoFileClassifier.TryMatch(name, out var matchedError) ? matchedError : null;
+            MoveToErrors(path, name, hash, errorIdentity?.OrderedAt, errorIdentity?.StoreId, errorIdentity?.CashRegisterId);
             _retry.Clear(path);
             return;
         }
@@ -174,10 +175,11 @@ public sealed class PedidoProcessor
 
         var directory = Path.Combine(
             Path.GetFullPath(_orders.Processed),
+            $"tienda_{identity.StoreId}",
+            $"tpv_{identity.CashRegisterId:000}",
             identity.OrderedAt.Value.ToString("yyyy", CultureInfo.InvariantCulture),
             identity.OrderedAt.Value.ToString("MM", CultureInfo.InvariantCulture),
-            identity.OrderedAt.Value.ToString("dd", CultureInfo.InvariantCulture),
-            identity.StoreId.ToString(CultureInfo.InvariantCulture));
+            identity.OrderedAt.Value.ToString("dd", CultureInfo.InvariantCulture));
         string planned;
         try
         {
@@ -235,20 +237,20 @@ public sealed class PedidoProcessor
             return;
         }
 
-        MoveToErrors(path, name, hash, identity?.OrderedAt, identity?.StoreId);
+        MoveToErrors(path, name, hash, identity?.OrderedAt, identity?.StoreId, identity?.CashRegisterId);
         _retry.Clear(path);
     }
 
-    private void MoveToErrors(string path, string name, string hash, DateTime? fileDate, int? storeId)
+    private void MoveToErrors(string path, string name, string hash, DateTime? fileDate, int? storeId, int? registerId = null)
     {
         var day = fileDate ?? DateTime.Now;
         var directory = Path.Combine(
             Path.GetFullPath(_orders.Errors),
+            storeId is int store ? $"tienda_{store}" : "tienda_sin_identificar",
+            registerId is int register ? $"tpv_{register:000}" : "tpv_sin_identificar",
             day.ToString("yyyy", CultureInfo.InvariantCulture),
             day.ToString("MM", CultureInfo.InvariantCulture),
             day.ToString("dd", CultureInfo.InvariantCulture));
-        if (storeId is int store)
-            directory = Path.Combine(directory, store.ToString(CultureInfo.InvariantCulture));
         try
         {
             var planned = PedidoFileArchive.Plan(name, directory, hash);
@@ -263,10 +265,11 @@ public sealed class PedidoProcessor
     private string ProcessedDirectory(PedidoHeader header)
         => Path.Combine(
             Path.GetFullPath(_orders.Processed),
+            $"tienda_{header.StoreId}",
+            $"tpv_{header.CashRegisterId:000}",
             header.OrderedAt.ToString("yyyy", CultureInfo.InvariantCulture),
             header.OrderedAt.ToString("MM", CultureInfo.InvariantCulture),
-            header.OrderedAt.ToString("dd", CultureInfo.InvariantCulture),
-            header.StoreId.ToString(CultureInfo.InvariantCulture));
+            header.OrderedAt.ToString("dd", CultureInfo.InvariantCulture));
 
     private static bool IsFinished(string estado)
         => string.Equals(estado, PedidoReceptionStatuses.Procesado, StringComparison.Ordinal)

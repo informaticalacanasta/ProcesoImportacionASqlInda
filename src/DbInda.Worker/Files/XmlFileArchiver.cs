@@ -110,11 +110,10 @@ public sealed class XmlFileArchiver : IXmlFileArchiver
         var y = request.FolderDate.Year.ToString("0000");
         var m = request.FolderDate.Month.ToString("00");
         var d = request.FolderDate.Day.ToString("00");
-        if (request.Kind == ArchiveKind.Error)
-            return Path.Combine(_paths.Errors, y, m, d);
-
-
-        return Path.Combine(_paths.Processed, y, m, d);
+        var root = request.Kind == ArchiveKind.Error ? _paths.Errors : _paths.Processed;
+        var store = request.Tienda is int tienda ? $"tienda_{tienda}" : "tienda_sin_identificar";
+        var register = request.Tpv is int tpv ? $"tpv_{tpv:000}" : "tpv_sin_identificar";
+        return Path.Combine(root, store, register, y, m, d);
     }
 
     private static IEnumerable<string> Candidates(string directory, string originalName, long receptionId)

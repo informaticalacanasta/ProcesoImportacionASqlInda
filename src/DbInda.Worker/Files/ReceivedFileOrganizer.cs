@@ -12,6 +12,7 @@ namespace DbInda.Worker.Files;
 public sealed class ReceivedFileOrganizer
 {
     private readonly string _input;
+    private readonly string _ticketPending;
     private readonly string _inbox;
     private readonly string _organized;
     private readonly string _logs;
@@ -28,6 +29,8 @@ public sealed class ReceivedFileOrganizer
         FileReadinessChecker readiness, IArchivedInvoiceLookup invoices, ILogger<ReceivedFileOrganizer> logger)
     {
         _input = Path.GetFullPath(paths.Value.Input);
+        _ticketPending = Path.GetFullPath(string.IsNullOrWhiteSpace(paths.Value.TicketPending)
+            ? paths.Value.Input : paths.Value.TicketPending);
         _options = options.Value;
         _inbox = Path.GetFullPath(string.IsNullOrWhiteSpace(_options.Inbox) ? Path.Combine(_input, "inbox") : _options.Inbox);
         _organized = Path.GetFullPath(string.IsNullOrWhiteSpace(_options.Organized) ? Path.Combine(_input, "inboxOrganizado") : _options.Organized);
@@ -186,7 +189,7 @@ public sealed class ReceivedFileOrganizer
             var stem = Path.GetFileNameWithoutExtension(path);
             var a4 = stem.EndsWith("_a4_sin_firmar", StringComparison.OrdinalIgnoreCase);
             var xmlStem = a4 ? stem[..^"_a4_sin_firmar".Length] + "_sin_firmar" : stem;
-            var origin = Path.Combine(_input, xmlStem + ".xml");
+            var origin = Path.Combine(_ticketPending, xmlStem + ".xml");
             IReadOnlyList<string> destinations;
             try
             {

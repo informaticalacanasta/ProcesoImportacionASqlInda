@@ -226,7 +226,8 @@ public sealed class TicketInboundFileProcessor : IInboundFileProcessor
             FolderDate = parse.Ticket?.FechaExpedicion
                          ?? parse.FileName?.Fecha
                          ?? DateOnly.FromDateTime(DateTime.Now),
-            Tienda = parse.Ticket?.Tienda ?? parse.FileName?.Tienda,
+            Tienda = parse.FileName?.Tienda ?? parse.Ticket?.Tienda,
+            Tpv = parse.FileName?.Tpv ?? parse.Ticket?.Tpv,
             ReceptionId = receptionId
         };
 

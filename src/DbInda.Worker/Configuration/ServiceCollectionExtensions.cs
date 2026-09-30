@@ -117,6 +117,10 @@ public static class ServiceCollectionExtensions
                 PedidoLayout.Mirror(orders),
                 sp.GetRequiredService<ILogger<PedidoMirrorJournal>>());
         });
+        services.AddOptions<TicketDeliveryOptions>().Bind(configuration.GetSection("TicketDelivery"))
+            .Validate(o => !o.Enabled || (Path.IsPathFullyQualified(o.Directory) && o.ScanIntervalSeconds > 0 && o.MinimumReceptionId >= 0), "TicketDelivery: ruta absoluta, intervalo positivo e ID mínimo no negativo requeridos.").ValidateOnStart();
+        services.AddSingleton<TicketDeliveryLookup>();
+        services.AddSingleton<TicketDeliveryPublisher>();
         services.AddSingleton<PedidoFileMirror>();
         services.AddSingleton<InboxCleanup>();
         services.AddSingleton<PedidoTxtParser>();

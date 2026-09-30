@@ -233,10 +233,14 @@ public sealed class ImportHealthWorker : BackgroundService
             if (!Directory.Exists(_paths.Input))
                 return [];
             var files = new List<string>();
-            foreach (var file in Directory.EnumerateFiles(_paths.Input, "*", SearchOption.TopDirectoryOnly))
+            foreach (var directory in new[] { _paths.Input, _paths.TicketPending }.Distinct(StringComparer.OrdinalIgnoreCase))
             {
-                if (FilePathNormalizer.HasXmlExtension(file))
-                    files.Add(FilePathNormalizer.Normalize(file));
+                if (!Directory.Exists(directory)) continue;
+                foreach (var file in Directory.EnumerateFiles(directory, "*", SearchOption.TopDirectoryOnly))
+                {
+                    if (FilePathNormalizer.HasXmlExtension(file))
+                        files.Add(FilePathNormalizer.Normalize(file));
+                }
             }
 
             reachable = true;

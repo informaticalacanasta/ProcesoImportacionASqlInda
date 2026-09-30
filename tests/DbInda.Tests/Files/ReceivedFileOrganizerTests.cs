@@ -151,6 +151,30 @@ public sealed class ReceivedFileOrganizerTests
     }
 
     [Fact]
+    public async Task Pdf_busca_el_xml_en_tickets_pendientes_y_sigue_su_archivo()
+    {
+        using var root = new TempFolder();
+        var pending = Directory.CreateDirectory(root.Xml("Tickets/Pendientes")).FullName;
+        var archived = Directory.CreateDirectory(root.Xml("Tickets/Procesados/tienda_152/tpv_001/2026/09/29")).FullName;
+        var xml = Path.Combine(archived, "fact_sin_firmar.xml");
+        File.WriteAllText(xml, "xml");
+        var pdf = root.WriteXml("fact_sin_firmar.pdf", "pdf");
+        var lookup = new Lookup { Paths = [xml] };
+        var readiness = new FileReadinessChecker(Options.Create(PipelineFactory.FastOptions()), new ImmediateTimeProvider(),
+            new FileSystemStabilityProbe(), NullLogger<FileReadinessChecker>.Instance);
+        var organizer = new ReceivedFileOrganizer(
+            Options.Create(new PathsOptions { Input = root.Path, TicketPending = pending }),
+            Options.Create(new OrganizationOptions()), readiness, lookup,
+            NullLogger<ReceivedFileOrganizer>.Instance);
+
+        await organizer.ScanAsync(default);
+
+        Assert.False(File.Exists(pdf));
+        Assert.Equal("pdf", File.ReadAllText(Path.Combine(archived, "fact_sin_firmar.pdf")));
+        Assert.Equal(Path.Combine(pending, "fact_sin_firmar.xml"), Assert.Single(lookup.Requested));
+    }
+
+    [Fact]
     public async Task Pdf_ambiguo_permanece_en_entrada()
     {
         using var root = new TempFolder();

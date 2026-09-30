@@ -27,6 +27,7 @@ public sealed class IncompleteArchiveRow
     public string NombreFichero { get; init; } = "";
     public DateTime? FechaFichero { get; init; }
     public int? TiendaFichero { get; init; }
+    public int? TpvFichero { get; init; }
     public DateTime? FechaProcesado { get; init; }
     public DateTime FechaRecepcion { get; init; }
 }

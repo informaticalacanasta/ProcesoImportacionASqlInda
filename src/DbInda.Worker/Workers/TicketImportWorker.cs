@@ -41,7 +41,7 @@ public sealed class TicketImportWorker : BackgroundService
     {
         _logger.LogInformation(
             "DbInda Ticket Importer iniciado (FASE 3B). Carpeta entrada: {Input}. Máxima concurrencia: {MaxConcurrency}. Cola: {QueueCapacity}. XSD: {Xsd}. SQL Server: {SqlTarget}.",
-            _paths.Input,
+            _paths.TicketPending,
             _processing.MaxConcurrency,
             _processing.QueueCapacity,
             _paths.Xsd,
@@ -57,10 +57,11 @@ public sealed class TicketImportWorker : BackgroundService
         }
 
         _pipeline.Start();
-        _watcher.TryStart(_paths.Input, path => _pipeline.Submit(path, stoppingToken));
+        Directory.CreateDirectory(_paths.TicketPending);
+        _watcher.TryStart(_paths.TicketPending, path => _pipeline.Submit(path, stoppingToken));
 
         var scannerTask = _scanner.RunAsync(
-            _paths.Input,
+            _paths.TicketPending,
             TimeSpan.FromSeconds(_processing.ScanIntervalSeconds),
             path => _pipeline.Submit(path, stoppingToken),
             stoppingToken,

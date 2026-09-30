@@ -30,13 +30,14 @@ public sealed class XmlFileArchiverTests
                 Kind = ArchiveKind.Processed,
                 FolderDate = new DateOnly(2026, 8, 15),
                 Tienda = 52,
+                Tpv = 1,
                 ReceptionId = 100
             });
 
         Assert.False(File.Exists(source));
         Assert.True(File.Exists(dest));
         Assert.Equal(original, File.ReadAllBytes(dest));
-        Assert.Contains(Path.Combine("2026", "08", "15"), dest);
+        Assert.Contains(Path.Combine("tienda_52", "tpv_001", "2026", "08", "15"), dest);
         Assert.EndsWith("ticket.xml", dest, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -45,7 +46,7 @@ public sealed class XmlFileArchiverTests
     {
         using var root = new TempFolder();
         var processed = Directory.CreateDirectory(Path.Combine(root.Path, "proc")).FullName;
-        var destDir = Directory.CreateDirectory(Path.Combine(processed, "2026", "08", "15")).FullName;
+        var destDir = Directory.CreateDirectory(Path.Combine(processed, "tienda_sin_identificar", "tpv_sin_identificar", "2026", "08", "15")).FullName;
         var occupant = Path.Combine(destDir, "ticket.xml");
         File.WriteAllText(occupant, "<other />");
         var occupantBytes = File.ReadAllBytes(occupant);
@@ -107,7 +108,7 @@ public sealed class XmlFileArchiverTests
     {
         using var root = new TempFolder();
         var processed = Directory.CreateDirectory(Path.Combine(root.Path, "proc")).FullName;
-        var destDir = Directory.CreateDirectory(Path.Combine(processed, "2026", "01", "02")).FullName;
+        var destDir = Directory.CreateDirectory(Path.Combine(processed, "tienda_sin_identificar", "tpv_sin_identificar", "2026", "01", "02")).FullName;
         var xml = "<same />";
         var existing = Path.Combine(destDir, "ticket.xml");
         File.WriteAllText(existing, xml);
