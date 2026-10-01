@@ -10,6 +10,7 @@ public sealed class TicketDeliveryWorker(TicketDeliveryLookup lookup, TicketDeli
     {
         var config = options.Value;
         if (!config.Enabled) return;
+        var pendingPdf = new HashSet<long>();
         while (!stoppingToken.IsCancellationRequested)
         {
             try
@@ -23,7 +24,16 @@ public sealed class TicketDeliveryWorker(TicketDeliveryLookup lookup, TicketDeli
                     if (batch.Length == 0) break;
                     foreach (var item in batch)
                     {
-                        try { await publisher.PublishAsync(config.Directory, item, stoppingToken); }
+                        try
+                        {
+                            await publisher.PublishAsync(config.Directory, item, stoppingToken);
+                            pendingPdf.Remove(item.Id);
+                        }
+                        catch (FileNotFoundException ex) when (!stoppingToken.IsCancellationRequested)
+                        {
+                            if (pendingPdf.Add(item.Id))
+                                logger.LogWarning("Entrega de ticket {Id} pendiente de PDF: {Path}", item.Id, ex.FileName);
+                        }
                         catch (Exception ex) when (ex is not OperationCanceledException)
                         { logger.LogError(ex, "Entrega de ticket {Id} pendiente; se reintentará.", item.Id); }
                         after = item.Id;

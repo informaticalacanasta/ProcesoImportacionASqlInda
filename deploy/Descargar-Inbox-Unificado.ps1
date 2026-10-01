@@ -1,12 +1,12 @@
 # Windows PowerShell 5.1 / PowerShell 7.
-# Pedidos: inboxOrganizado -> InboxPrueba -> inbox -> borrar salida de Ubuntu.
-# Tickets: paraDescargar -> InboxPrueba. Fin; conserva la salida de Ubuntu.
+# Pedidos: Pedidos/Salida -> InboxPrueba -> inbox -> borrar salida de Ubuntu.
+# Tickets: Tickets/Salida -> InboxPrueba. Fin; conserva la salida de Ubuntu.
 [CmdletBinding()]
 param(
     [string]$SshUsuario = 'trujillo',
     [string]$SshHost = '85.234.145.90',
-    [string]$PedidosRemotos = '/home/tpv_recepcion/inboxOrganizado',
-    [string]$TicketsRemotos = '/home/tpv_recepcion/tickets/paraDescargar',
+    [string]$PedidosRemotos = '/home/tpv_recepcion/Pedidos/Salida',
+    [string]$TicketsRemotos = '/home/tpv_recepcion/Tickets/Salida',
     [string]$InboxPrueba = '\\pedidos\C\TPVISION\InboxPrueba',
     [string]$Inbox = '\\pedidos\C\TPVISION\inbox',
     [string]$CredentialFile = '',
@@ -29,6 +29,9 @@ function Test-RutaRemota([string]$Path) {
     if ($Path -notmatch '^/[A-Za-z0-9_/-]+$' -or $Path -match '/\.\.') {
         throw "Ruta remota no admitida: $Path"
     }
+}
+function Write-Paso([string]$Message) {
+    Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] $Message"
 }
 function Get-Hash([string]$Path) { (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant() }
 function Invoke-Remoto([string]$Command) {
@@ -65,7 +68,7 @@ function Copy-Checked([string]$Source, [string]$Destination, [long]$Size) {
     }
 }
 function Invoke-Pedidos {
-    $rows = @(Invoke-Remoto "find '$PedidosRemotos' -mindepth 1 -maxdepth 1 -type f -printf '%s\t%f\n'")
+    $rows = @(Invoke-Remoto "find '$PedidosRemotos' -mindepth 1 -maxdepth 1 -type f -iname '*.txt' -printf '%s\t%f\n'")
     $items = @()
     foreach ($row in $rows) {
         if ([string]::IsNullOrWhiteSpace($row)) { continue }
@@ -75,8 +78,8 @@ function Invoke-Pedidos {
             $script:errors++
             continue
         }
-        if ($parts[1] -match '\.[xX][mM][lL]$') {
-            Write-Warning "XML omitido de inboxOrganizado para no enviarlo a inbox: $($parts[1])"
+        if ($parts[1] -notmatch '\.[tT][xX][tT]$') {
+            Write-Warning "Archivo no TXT omitido de Pedidos/Salida: $($parts[1])"
             continue
         }
         $items += [pscustomobject]@{ Name = $parts[1]; Size = [long]$parts[0]; InTest = $false; InInbox = $false }
@@ -89,52 +92,87 @@ function Invoke-Pedidos {
             $local = Join-Path $working $item.Name
             Receive-Archivo $remote $local
             if ((Get-Item -LiteralPath $local).Length -ne $item.Size) { throw 'Tamaño descargado distinto de Ubuntu.' }
-            Copy-Checked $local (Join-Path $InboxPrueba $item.Name) $item.Size
+            $testDestination = Join-Path $InboxPrueba $item.Name
+            Copy-Checked $local $testDestination $item.Size
             $item.InTest = $true
-            Write-Host "Pedido copiado a InboxPrueba: $($item.Name)"
+            Write-Paso "PEDIDO | Copiado y verificado en InboxPrueba: $remote -> $testDestination"
         } catch { $script:errors++; Write-Warning "Pedido no copiado a InboxPrueba: $($item.Name). $($_.Exception.Message)" }
     }
     foreach ($item in @($items | Where-Object InTest)) {
         try {
-            Copy-Checked (Join-Path $working $item.Name) (Join-Path $Inbox $item.Name) $item.Size
+            $inboxDestination = Join-Path $Inbox $item.Name
+            Copy-Checked (Join-Path $working $item.Name) $inboxDestination $item.Size
             $item.InInbox = $true
-            Write-Host "Pedido copiado a inbox: $($item.Name)"
+            Write-Paso "PEDIDO | Copiado y verificado en inbox: $inboxDestination"
         } catch { $script:errors++; Write-Warning "Pedido no copiado a inbox: $($item.Name). $($_.Exception.Message)" }
     }
     foreach ($item in @($items | Where-Object InInbox)) {
         try {
-            Invoke-Remoto "rm -- '$PedidosRemotos/$($item.Name)'" | Out-Null
-            Write-Host "Pedido retirado de Ubuntu: $($item.Name)"
+            $remote = "$PedidosRemotos/$($item.Name)"
+            Invoke-Remoto "rm -- '$remote'" | Out-Null
+            Write-Paso "PEDIDO | Eliminado de Ubuntu tras verificar ambas copias: $remote"
         } catch { $script:errors++; Write-Warning "Pedido conservado en Ubuntu: $($item.Name). $($_.Exception.Message)" }
     }
 }
 function Invoke-Tickets {
-    $rows = @(Invoke-Remoto "find '$TicketsRemotos' -mindepth 2 -maxdepth 2 -type f -iname '*.xml' -printf '%P\n'")
-    $rows = @($rows | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
-    Write-Host "Tickets encontrados: $($rows.Count)"
+    $rows = @(Invoke-Remoto "find '$TicketsRemotos' -mindepth 2 -maxdepth 2 -type f \( -iname '*.xml' -o -iname '*.pdf' \) -printf '%P\n'")
+    $packages = @{}
     foreach ($relative in $rows) {
-        try {
-            if ($relative -notmatch '^(?<id>[1-9][0-9]*)/(?<name>[A-Za-z0-9_.-]+\.[xX][mM][lL])$') {
-                throw "Nombre de ticket no admitido: $relative"
-            }
-            $id = $Matches.id
-            $name = $Matches.name
-            $remote = "$TicketsRemotos/$relative"
-            $hashLine = [string](Invoke-Remoto "sha256sum -- '$remote'")
-            if ($hashLine -notmatch '^(?<hash>[a-fA-F0-9]{64})\s') { throw 'Hash remoto invalido.' }
-            $hash = $Matches.hash.ToLowerInvariant()
-            $destination = Join-Path $InboxPrueba $name
-            if (Test-Path -LiteralPath $destination) {
-                if ((Get-Hash $destination) -ne $hash) { throw "Colision en InboxPrueba: $name" }
-            } else {
-                $partial = Join-Path $InboxPrueba ('.ticket-' + $id + '.partial')
-                Receive-Archivo $remote $partial
-                if ((Get-Hash $partial) -ne $hash) { throw 'Descarga de ticket no verificada.' }
-                [IO.File]::Move($partial, $destination)
-            }
-            Write-Host "Ticket verificado en InboxPrueba: $name. Ubuntu conservado."
-        } catch { $script:errors++; Write-Warning "Ticket pendiente: $relative. $($_.Exception.Message)" }
+        if ([string]::IsNullOrWhiteSpace($relative)) { continue }
+        if ($relative -notmatch '^(?<id>[1-9][0-9]*)/(?<name>[A-Za-z0-9_.-]+\.(xml|pdf))$') {
+            Write-Warning "Archivo de ticket omitido por nombre no admitido: $relative"
+            $script:errors++
+            continue
+        }
+        $id = $Matches.id
+        if (-not $packages.ContainsKey($id)) { $packages[$id] = New-Object 'System.Collections.Generic.List[string]' }
+        $packages[$id].Add($Matches.name)
     }
+    Write-Host "Tickets publicados encontrados: $($packages.Count)"
+    if ($packages.Count -eq 0) { Write-Host 'Sin tickets en Salida. Si se esperaban, comprobar TicketDelivery__Enabled en Ubuntu.' }
+    $omitidos = 0
+    $descargados = 0
+    $completos = 0
+    foreach ($id in @($packages.Keys | Sort-Object { [long]$_ })) {
+        try {
+            $names = @($packages[$id])
+            $xml = @($names | Where-Object { $_ -match '\.xml$' })
+            $pdf = @($names | Where-Object { $_ -match '\.pdf$' })
+            if ($xml.Count -ne 1 -or $pdf.Count -ne 2) {
+                throw "Conjunto incompleto: $($xml.Count) XML y $($pdf.Count) PDF; se requieren 1 XML y 2 PDF."
+            }
+            $stem = [IO.Path]::GetFileNameWithoutExtension($xml[0])
+            $a4Stem = $stem -ireplace '_sin_firmar', '_a4_sin_firmar'
+            if ($a4Stem -eq $stem) { throw "No se identifica el PDF A4 de $($xml[0])." }
+            $normal = @($pdf | Where-Object { $_ -ieq ($stem + '.pdf') })
+            $a4 = @($pdf | Where-Object { $_ -ieq ($a4Stem + '.pdf') })
+            if ($normal.Count -ne 1 -or $a4.Count -ne 1) { throw 'Los nombres de los dos PDF no corresponden al XML.' }
+            foreach ($name in @($xml[0], $normal[0], $a4[0])) {
+                $destination = Join-Path $InboxPrueba $name
+                # Los archivos existentes se omiten por nombre, como en el script anterior.
+                if (Test-Path -LiteralPath $destination -PathType Leaf) {
+                    $omitidos++
+                    continue
+                }
+                $remote = "$TicketsRemotos/$id/$name"
+                $hashLine = [string](Invoke-Remoto "sha256sum -- '$remote'")
+                if ($hashLine -notmatch '^(?<hash>[a-fA-F0-9]{64})\s') { throw 'Hash remoto invalido.' }
+                $hash = $Matches.hash.ToLowerInvariant()
+                if (Test-Path -LiteralPath $destination) {
+                    if ((Get-Hash $destination) -ne $hash) { throw "Colision en InboxPrueba: $name" }
+                } else {
+                    $partial = Join-Path $InboxPrueba ('.ticket-' + $id + '-' + $name + '.partial')
+                    Receive-Archivo $remote $partial
+                    if ((Get-Hash $partial) -ne $hash) { throw 'Descarga de ticket no verificada.' }
+                    [IO.File]::Move($partial, $destination)
+                }
+                $descargados++
+                Write-Paso "TICKET | Copiado y verificado en InboxPrueba: $remote -> $destination. Ubuntu conservado."
+            }
+            $completos++
+        } catch { $script:errors++; Write-Warning "Ticket pendiente: $id. $($_.Exception.Message)" }
+    }
+    Write-Host "Tickets completos en InboxPrueba: $completos. Archivos nuevos: $descargados. Ya existentes omitidos sin verificar: $omitidos."
 }
 
 Test-RutaRemota $PedidosRemotos
@@ -200,8 +238,8 @@ try {
     Write-Host "Fin de descarga unificada: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss'). Incidencias: $($script:errors)"
     if ($transcriptStarted) { try { Stop-Transcript | Out-Null } catch { } }
     if ($MostrarConsola) {
-        Write-Host 'La ventana se cerrara en 45 segundos.'
-        Start-Sleep -Seconds 45
+        Write-Host 'La ventana se cerrara en 5 segundos.'
+        Start-Sleep -Seconds 5
     }
 }
 if ($script:errors) { throw "Descarga terminada con $($script:errors) incidencia(s)." }
